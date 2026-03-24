@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SpeakStar - Pronoun Switch Game</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Trebuchet MS',Arial,sans-serif;background:linear-gradient(135deg,#7E57C2,#F06292);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+.header{text-align:center;color:#fff;margin-bottom:15px}.header h1{font-size:2em;text-shadow:2px 2px 4px rgba(0,0,0,.3)}
+.game{background:#fff;border-radius:20px;padding:25px;max-width:650px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.2);text-align:center}
+.sentence{font-size:1.3em;color:#2D3436;margin:15px 0;padding:15px;background:#f8f9fa;border-radius:12px;line-height:1.6}
+.sentence .name{background:#FF6B6B;color:#fff;padding:3px 10px;border-radius:8px;font-weight:bold;cursor:pointer;transition:all .2s}
+.sentence .name:hover{transform:scale(1.1);display:inline-block}
+.sentence .pronoun{background:#66BB6A;color:#fff;padding:3px 10px;border-radius:8px;font-weight:bold}
+.choices{display:flex;gap:12px;justify-content:center;margin:20px 0;flex-wrap:wrap}
+.choice{padding:12px 24px;border:3px solid #e0e0e0;border-radius:12px;font-size:1.1em;font-weight:bold;cursor:pointer;transition:all .2s;background:#fff}
+.choice:hover{border-color:#7E57C2;background:#F3E5F5;transform:scale(1.05)}
+.choice.correct{border-color:#66BB6A;background:#E8F5E9;color:#2E7D32}
+.choice.wrong{border-color:#FF6B6B;background:#FBE9E7;color:#C62828}
+.progress{display:flex;gap:6px;justify-content:center;margin:15px 0}
+.dot{width:16px;height:16px;border-radius:50%;background:#eee;transition:all .3s}
+.dot.done{background:#66BB6A}.dot.current{background:#FFD54F;transform:scale(1.2)}
+.fb{font-size:1.2em;font-weight:bold;min-height:40px;margin:15px 0}
+.btn{padding:12px 28px;border:none;border-radius:12px;font-size:1em;font-weight:bold;cursor:pointer;margin:5px;transition:all .2s}
+.btn:hover{transform:scale(1.05)}
+.btn-next{background:#7E57C2;color:#fff}
+.score{font-size:1.8em;margin:10px 0}
+.celebration{font-size:3em;animation:bounce .5s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+</style>
+</head>
+<body>
+<div class="header"><h1>🔄 Pronoun Switch! 🔄</h1><p>Replace the name with the right pronoun! — SpeakStar Level 1</p></div>
+<div class="game" id="game"></div>
+<script>
+const questions=[
+  {sentence:'<span class="name">Ria</span> likes to draw.',name:'Ria',choices:['He','She','It','They'],correct:1,explain:'Ria is a girl, so we use SHE!'},
+  {sentence:'<span class="name">The dog</span> runs in the park.',name:'The dog',choices:['He','She','It','They'],correct:2,explain:'For animals (when we don\'t know), we use IT!'},
+  {sentence:'<span class="name">Aman</span> plays cricket every day.',name:'Aman',choices:['He','She','It','They'],correct:0,explain:'Aman is a boy, so we use HE!'},
+  {sentence:'<span class="name">Priya and Raj</span> are best friends.',name:'Priya and Raj',choices:['He','She','It','They'],correct:3,explain:'For a group of people, we use THEY!'},
+  {sentence:'<span class="name">The cat</span> is sleeping on the sofa.',name:'The cat',choices:['He','She','It','They'],correct:2,explain:'For animals and things, we use IT!'},
+  {sentence:'<span class="name">My teacher</span> is very kind.',name:'My teacher',choices:['He','She','It','They'],correct:0,explain:'We can use HE or SHE depending on the teacher! Both are correct here.',note:'(Accept either He or She)'},
+  {sentence:'<span class="name">The children</span> are playing outside.',name:'The children',choices:['He','She','It','They'],correct:3,explain:'Children = a group, so we use THEY!'},
+  {sentence:'<span class="name">My grandmother</span> tells the best stories.',name:'My grandmother',choices:['He','She','It','They'],correct:1,explain:'Grandmother is a woman, so we use SHE!'},
+];
+let cur=0,score=0,answered=false;
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function render(){
+  if(cur>=8){showEnd();return}
+  answered=false;const q=questions[cur];
+  const dots=Array.from({length:8},(_,i)=>`<div class="dot ${i<cur?'done':''} ${i===cur?'current':''}"></div>`).join('');
+  document.getElementById('game').innerHTML=`
+    <div class="progress">${dots}</div>
+    <div style="font-size:.9em;color:#888">Question ${cur+1} of 8</div>
+    <div class="sentence" id="sent">${q.sentence}</div>
+    <p style="color:#7E57C2;font-weight:bold;margin:10px 0">Which pronoun replaces <span style="background:#FF6B6B;color:#fff;padding:2px 8px;border-radius:6px">${q.name}</span>?</p>
+    <div class="choices">${q.choices.map((c,i)=>`<div class="choice" data-idx="${i}" onclick="pick(${i})">${c}</div>`).join('')}</div>
+    <div class="fb" id="fb"></div>
+    <div class="score">${'⭐'.repeat(score)}${'☆'.repeat(8-score)}</div>`;
+}
+function pick(idx){
+  if(answered)return;answered=true;
+  const q=questions[cur];const choices=document.querySelectorAll('.choice');
+  choices.forEach(c=>c.style.pointerEvents='none');
+  const fb=document.getElementById('fb');
+  if(idx===q.correct||(cur===5&&(idx===0||idx===1))){
+    choices[idx].classList.add('correct');
+    // Show the switched sentence
+    const pronoun=q.choices[idx];
+    document.getElementById('sent').innerHTML=q.sentence.replace(`<span class="name">${q.name}</span>`,`<span class="pronoun">${pronoun}</span>`);
+    fb.innerHTML=`<span style="color:#66BB6A">✔ ${q.explain}</span>`;
+    score++;
+  }else{
+    choices[idx].classList.add('wrong');choices[q.correct].classList.add('correct');
+    fb.innerHTML=`<span style="color:#FF6B6B">✘ Not quite! ${q.explain}</span>`;
+  }
+  setTimeout(()=>{cur++;render()},2000);
+}
+function showEnd(){
+  const msg=score>=7?'PRONOUN PRO! 🏆':score>=5?'Great job! 🌟':'Keep practising! 💪';
+  document.getElementById('game').innerHTML=`<div class="celebration">🔄</div><h2 style="color:#7E57C2;margin:15px 0">${msg}</h2><div class="score">${'⭐'.repeat(score)}${'☆'.repeat(8-score)}</div><p style="font-size:1.2em">${score}/8 correct!</p><div style="margin-top:20px"><button class="btn btn-next" onclick="cur=0;score=0;render()">Play Again!</button></div>`;
+}
+render();
+</script></body></html>

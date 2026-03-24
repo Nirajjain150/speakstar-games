@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpeakStar - Action Charades Game</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Trebuchet MS', Arial, sans-serif; background: linear-gradient(135deg, #FF6B6B 0%, #FFA726 100%); min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:20px; }
+  .header { text-align:center; color:white; margin-bottom:20px; }
+  .header h1 { font-size:2.2em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+  .game-area { background:white; border-radius:20px; padding:30px; max-width:600px; width:100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align:center; }
+  .mode-select { margin-bottom:20px; }
+  .mode-btn { padding:15px 30px; border:none; border-radius:15px; font-size:1.1em; font-weight:bold; cursor:pointer; margin:5px; transition:all 0.2s; }
+  .mode-btn:hover { transform:scale(1.05); }
+  .mode-btn.teacher { background:#00BCD4; color:white; }
+  .mode-btn.child { background:#FF6B6B; color:white; }
+  .action-card { background:linear-gradient(135deg, #FF6B6B, #FF8A80); border-radius:20px; padding:40px; margin:20px 0; transition: all 0.3s; }
+  .action-word { font-size:3.5em; color:white; font-weight:bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+  .action-sentence { font-size:1.3em; color:#FFF8E1; margin-top:15px; }
+  .timer { font-size:4em; color:#FFD54F; font-weight:bold; margin:15px 0; }
+  .timer.urgent { color:#FF6B6B; animation: pulse 0.5s ease infinite alternate; }
+  @keyframes pulse { from{transform:scale(1)} to{transform:scale(1.1)} }
+  .btn { padding:14px 30px; border:none; border-radius:12px; font-size:1.1em; font-weight:bold; cursor:pointer; margin:5px; transition:all 0.2s; }
+  .btn:hover { transform:scale(1.05); }
+  .btn-start { background:#66BB6A; color:white; font-size:1.3em; padding:18px 40px; }
+  .btn-next { background:#7E57C2; color:white; }
+  .btn-done { background:#FFD54F; color:#2D3436; }
+  .progress { display:flex; justify-content:center; gap:8px; margin:15px 0; }
+  .progress .dot { width:20px; height:20px; border-radius:50%; background:#eee; transition:all 0.3s; }
+  .progress .dot.done { background:#66BB6A; }
+  .progress .dot.current { background:#FFD54F; transform:scale(1.2); }
+  .instructions { background:#FFF8E1; padding:15px; border-radius:10px; margin:15px 0; text-align:left; font-size:0.95em; color:#2D3436; line-height:1.6; }
+  .score-display { font-size:2em; margin:15px 0; }
+  .celebration { font-size:4em; animation: bounce 0.5s ease infinite alternate; }
+  @keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-10px)} }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🎬 Action Charades! 🎬</h1>
+  <p>Act it out, say it loud! — SpeakStar Level 1</p>
+</div>
+<div class="game-area" id="game"></div>
+
+<script>
+const actions = [
+  { word: "JUMP", sentence: "I am jumping!", emoji: "🦘" },
+  { word: "EAT", sentence: "I am eating!", emoji: "🍽️" },
+  { word: "DANCE", sentence: "I am dancing!", emoji: "💃" },
+  { word: "RUN", sentence: "I am running!", emoji: "🏃" },
+  { word: "CLAP", sentence: "I am clapping!", emoji: "👏" },
+  { word: "READ", sentence: "I am reading!", emoji: "📖" },
+  { word: "SLEEP", sentence: "I am sleeping!", emoji: "😴" },
+  { word: "WAVE", sentence: "I am waving!", emoji: "👋" },
+  { word: "SING", sentence: "I am singing!", emoji: "🎤" },
+  { word: "WALK", sentence: "I am walking!", emoji: "🚶" },
+];
+
+let currentIdx = 0, score = 0, mode = '', timerInterval = null, timeLeft = 10;
+
+function showStart() {
+  document.getElementById('game').innerHTML = `
+    <h2 style="color:#FF6B6B; margin-bottom:15px;">How to Play</h2>
+    <div class="instructions">
+      <strong>Choose a mode:</strong><br><br>
+      🎭 <strong>Teacher Acts:</strong> Teacher acts out the word. Child guesses and says the sentence!<br><br>
+      👦 <strong>Child Acts:</strong> Child sees the word, acts it out, and says "I am ___-ing!"<br><br>
+      You get 10 seconds per action. Win stars for each one! ⭐
+    </div>
+    <div class="mode-select">
+      <button class="mode-btn teacher" onclick="startGame('teacher')">🎭 Teacher Acts</button>
+      <button class="mode-btn child" onclick="startGame('child')">👦 Child Acts</button>
+    </div>
+  `;
+}
+
+function startGame(m) {
+  mode = m;
+  currentIdx = 0;
+  score = 0;
+  shuffle(actions);
+  showAction();
+}
+
+function shuffle(arr) { for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];} }
+
+function showAction() {
+  if(currentIdx >= 8) { showEnd(); return; }
+  const a = actions[currentIdx];
+  timeLeft = 10;
+  
+  const dots = Array.from({length:8}, (_,i) => 
+    `<div class="dot ${i < currentIdx ? 'done' : ''} ${i === currentIdx ? 'current' : ''}"></div>`
+  ).join('');
+  
+  let cardContent = '';
+  if(mode === 'child') {
+    cardContent = `
+      <div class="action-card">
+        <div style="font-size:2em">${a.emoji}</div>
+        <div class="action-word">${a.word}!</div>
+        <div class="action-sentence">Say: "${a.sentence}"</div>
+      </div>
+    `;
+  } else {
+    cardContent = `
+      <div class="action-card" style="background:linear-gradient(135deg, #00BCD4, #26C6DA);">
+        <div style="font-size:2em">🎭</div>
+        <div class="action-word" style="font-size:2em;">Teacher: Act this out!</div>
+        <div class="action-sentence" id="revealWord" style="font-size:2.5em; cursor:pointer;" onclick="this.textContent='${a.word}! ${a.emoji}'">[Tap to reveal word]</div>
+      </div>
+    `;
+  }
+  
+  document.getElementById('game').innerHTML = `
+    <div class="progress">${dots}</div>
+    <div style="font-size:0.9em; color:#888;">Action ${currentIdx+1} of 8</div>
+    ${cardContent}
+    <div class="timer" id="timer">${timeLeft}</div>
+    <div>
+      <button class="btn btn-done" onclick="gotIt()">⭐ Got it!</button>
+      <button class="btn btn-next" onclick="skipAction()">Skip →</button>
+    </div>
+  `;
+  
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    const timerEl = document.getElementById('timer');
+    if(timerEl) {
+      timerEl.textContent = timeLeft;
+      if(timeLeft <= 3) timerEl.className = 'timer urgent';
+    }
+    if(timeLeft <= 0) { clearInterval(timerInterval); skipAction(); }
+  }, 1000);
+}
+
+function gotIt() {
+  clearInterval(timerInterval);
+  score++;
+  currentIdx++;
+  showAction();
+}
+
+function skipAction() {
+  clearInterval(timerInterval);
+  currentIdx++;
+  showAction();
+}
+
+function showEnd() {
+  clearInterval(timerInterval);
+  const msg = score >= 7 ? "SUPERSTAR! 🌟" : score >= 5 ? "Great job! 💪" : "Keep practicing! 🚀";
+  document.getElementById('game').innerHTML = `
+    <div class="celebration">🎬</div>
+    <h2 style="color:#FF6B6B; margin:15px 0;">ACTION CHARADES COMPLETE!</h2>
+    <div class="score-display">${'⭐'.repeat(score)}${'☆'.repeat(8 - score)}</div>
+    <p style="font-size:1.3em; color:#2D3436; font-weight:bold;">${msg}</p>
+    <p style="color:#888; margin:10px 0;">You got ${score} out of 8 actions!</p>
+    <button class="btn btn-start" onclick="showStart()" style="margin-top:20px;">Play Again!</button>
+  `;
+}
+
+showStart();
+</script>
+</body>
+</html>

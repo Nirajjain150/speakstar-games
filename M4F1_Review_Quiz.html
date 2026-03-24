@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpeakStar - Review Quiz</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Trebuchet MS', Arial, sans-serif; background: linear-gradient(135deg, #1A237E 0%, #7E57C2 100%); min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:20px; }
+  .header { text-align:center; color:white; margin-bottom:20px; }
+  .header h1 { font-size:2.2em; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+  .game-area { background:white; border-radius:20px; padding:30px; max-width:650px; width:100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+  .progress-bar { background:#eee; border-radius:10px; height:12px; margin-bottom:20px; overflow:hidden; }
+  .progress-fill { background:linear-gradient(90deg, #FFD54F, #FFA726); height:100%; border-radius:10px; transition: width 0.5s; }
+  .question-num { text-align:center; font-size:0.9em; color:#888; margin-bottom:10px; }
+  .question-card { background:#f8f9fa; border-radius:15px; padding:25px; margin-bottom:20px; }
+  .question-category { display:inline-block; padding:4px 12px; border-radius:20px; font-size:0.8em; font-weight:bold; color:white; margin-bottom:10px; }
+  .cat-intro { background:#00BCD4; }
+  .cat-sentence { background:#FFA726; }
+  .cat-action { background:#FF6B6B; }
+  .cat-grammar { background:#7E57C2; }
+  .question-text { font-size:1.3em; color:#2D3436; margin:10px 0 20px; line-height:1.4; }
+  .options { display:flex; flex-direction:column; gap:10px; }
+  .option { padding:15px 20px; border:2px solid #e0e0e0; border-radius:12px; font-size:1.05em; cursor:pointer; transition:all 0.2s; background:white; text-align:left; }
+  .option:hover { border-color:#7E57C2; background:#f3e5f5; transform:translateX(5px); }
+  .option.selected { border-color:#7E57C2; background:#ede7f6; }
+  .option.correct { border-color:#66BB6A; background:#E8F5E9; }
+  .option.wrong { border-color:#FF6B6B; background:#FBE9E7; }
+  .option.disabled { pointer-events:none; }
+  .feedback { text-align:center; font-size:1.2em; font-weight:bold; margin:15px 0; min-height:30px; }
+  .btn { padding:14px 30px; border:none; border-radius:12px; font-size:1.1em; font-weight:bold; cursor:pointer; transition:all 0.2s; display:inline-block; }
+  .btn:hover { transform:scale(1.05); }
+  .btn-next { background:#7E57C2; color:white; }
+  .btn-start { background:#FFD54F; color:#2D3436; font-size:1.3em; padding:18px 40px; }
+  .controls { text-align:center; margin-top:10px; }
+  .score { text-align:center; font-size:1.8em; margin:10px 0; }
+  .celebration { font-size:4em; text-align:center; animation: bounce 0.5s ease infinite alternate; }
+  @keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-10px)} }
+  .result-item { padding:10px; margin:5px 0; border-radius:8px; font-size:0.95em; }
+  .result-correct { background:#E8F5E9; color:#2E7D32; }
+  .result-wrong { background:#FBE9E7; color:#C62828; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🏆 SpeakStar Review Quiz 🏆</h1>
+  <p>Test everything you've learned! — Level 1 Explorer</p>
+</div>
+<div class="game-area" id="game"></div>
+
+<script>
+const questions = [
+  { cat:"intro", catLabel:"Introduction", q:"What is the CORRECT way to say your name?", opts:["Rahul.","My name is Rahul.","Name Rahul.","I Rahul."], ans:1 },
+  { cat:"intro", catLabel:"Introduction", q:'Which sentence tells your age?', opts:['"I am seven."','"I am 7 years old."','"Seven years."','"Age 7."'], ans:1 },
+  { cat:"sentence", catLabel:"Sentences", q:"Which is a FULL sentence?", opts:["Ball.","Big red.","I have a red ball.","Ball red big."], ans:2 },
+  { cat:"sentence", catLabel:"Sentences", q:'The sentence recipe is: WHO + ___ + WHAT. What goes in the middle?', opts:["WHERE","DOES","WHEN","WHY"], ans:1 },
+  { cat:"sentence", catLabel:"Sentences", q:'Put these words in order: "cricket / She / plays"', opts:["Cricket she plays.","She plays cricket.","Plays she cricket.","She cricket plays."], ans:1 },
+  { cat:"action", catLabel:"Action Words", q:'Which word is an ACTION word?', opts:["Beautiful","Happy","Jump","Big"], ans:2 },
+  { cat:"action", catLabel:"Action Words", q:'"I am ___ing" means you are doing it RIGHT NOW. Fill in: "I am eat___"', opts:["eated","eating","eats","ate"], ans:1 },
+  { cat:"action", catLabel:"Action Words", q:'Which sentence uses an action word correctly?', opts:['"I running."','"I am running."','"Running I am."','"Am running I."'], ans:1 },
+  { cat:"grammar", catLabel:"Grammar", q:'When do we say "Good Morning"?', opts:["At night","In the afternoon","When the sun is waking up","When it is dark"], ans:2 },
+  { cat:"grammar", catLabel:"Grammar", q:'Which is the POLITE way to say no?', opts:['"No!"','"I don\'t want."','"No thank you."','"Go away."'], ans:2 },
+];
+
+let current = 0, score = 0, answered = false, results = [];
+
+function showStart() {
+  document.getElementById('game').innerHTML = `
+    <div style="text-align:center;">
+      <div style="font-size:3em; margin:15px 0;">🌟</div>
+      <h2 style="color:#7E57C2; margin-bottom:15px;">Ready for the Challenge?</h2>
+      <p style="color:#666; margin-bottom:5px; font-size:1.05em;">10 questions covering:</p>
+      <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:15px 0;">
+        <span class="question-category cat-intro">Introduction</span>
+        <span class="question-category cat-sentence">Sentences</span>
+        <span class="question-category cat-action">Action Words</span>
+        <span class="question-category cat-grammar">Grammar</span>
+      </div>
+      <p style="color:#888; margin:15px 0;">Get 8 or more correct to become a SpeakStar Champion!</p>
+      <button class="btn btn-start" onclick="startQuiz()">Let's Go! 🚀</button>
+    </div>
+  `;
+}
+
+function startQuiz() { current=0; score=0; results=[]; showQuestion(); }
+
+function showQuestion() {
+  if(current >= questions.length) { showResults(); return; }
+  answered = false;
+  const q = questions[current];
+  const pct = (current / questions.length) * 100;
+  const catClass = `cat-${q.cat}`;
+  
+  document.getElementById('game').innerHTML = `
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="question-num">Question ${current+1} of ${questions.length}</div>
+    <div class="question-card">
+      <span class="question-category ${catClass}">${q.catLabel}</span>
+      <div class="question-text">${q.q}</div>
+      <div class="options" id="options">
+        ${q.opts.map((o,i) => `<div class="option" data-idx="${i}" onclick="selectOption(${i})">${String.fromCharCode(65+i)}) ${o}</div>`).join('')}
+      </div>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div class="controls"><button class="btn btn-next" id="nextBtn" style="display:none;" onclick="nextQ()">Next →</button></div>
+  `;
+}
+
+function selectOption(idx) {
+  if(answered) return;
+  answered = true;
+  const q = questions[current];
+  const opts = document.querySelectorAll('.option');
+  opts.forEach(o => o.classList.add('disabled'));
+  
+  const fb = document.getElementById('feedback');
+  if(idx === q.ans) {
+    opts[idx].classList.add('correct');
+    fb.textContent = '🎉 Correct! Amazing!';
+    fb.style.color = '#66BB6A';
+    score++;
+    results.push({q: q.q, correct: true});
+  } else {
+    opts[idx].classList.add('wrong');
+    opts[q.ans].classList.add('correct');
+    fb.textContent = '😅 Not quite! The green one is correct.';
+    fb.style.color = '#FF6B6B';
+    results.push({q: q.q, correct: false, yourAnswer: q.opts[idx], rightAnswer: q.opts[q.ans]});
+  }
+  document.getElementById('nextBtn').style.display = 'inline-block';
+}
+
+function nextQ() { current++; showQuestion(); }
+
+function showResults() {
+  const pct = Math.round((score/questions.length)*100);
+  const msg = score >= 9 ? "SUPERSTAR CHAMPION! 🏆" : score >= 7 ? "Awesome SpeakStar! 🌟" : score >= 5 ? "Great effort! Keep going! 💪" : "Practice makes perfect! 🚀";
+  const emoji = score >= 8 ? "🏆" : "⭐";
+  
+  document.getElementById('game').innerHTML = `
+    <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+    <div class="celebration">${emoji}</div>
+    <h2 style="text-align:center; color:#7E57C2; margin:10px 0;">${msg}</h2>
+    <div class="score">${'⭐'.repeat(score)}${'☆'.repeat(questions.length - score)}</div>
+    <p style="text-align:center; font-size:1.2em; color:#2D3436;">${score} out of ${questions.length} correct (${pct}%)</p>
+    <div style="margin:20px 0;">
+      <h3 style="color:#888; margin-bottom:10px;">Review:</h3>
+      ${results.map(r => r.correct 
+        ? `<div class="result-item result-correct">✓ ${r.q}</div>`
+        : `<div class="result-item result-wrong">✗ ${r.q}<br><small>Your answer: ${r.yourAnswer} → Correct: ${r.rightAnswer}</small></div>`
+      ).join('')}
+    </div>
+    <div class="controls"><button class="btn btn-start" onclick="startQuiz()">Try Again!</button></div>
+  `;
+}
+
+showStart();
+</script>
+</body>
+</html>
