@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SpeakStar - Describe My Family!</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Trebuchet MS',Arial,sans-serif;background:linear-gradient(135deg,#F06292,#AD1457);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px;overflow-x:hidden}
+.header{text-align:center;color:#fff;margin-bottom:15px}.header h1{font-size:2.2em;text-shadow:2px 2px 4px rgba(0,0,0,.3)}
+.game{background:#fff;border-radius:20px;padding:25px;max-width:700px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.family-card{background:linear-gradient(135deg,#FFF0F5,#FCE4EC);border-radius:16px;padding:20px;margin:12px 0;text-align:center}
+.family-emoji{font-size:3.5em;margin-bottom:8px}
+.family-name{font-size:1.5em;color:#AD1457;font-weight:bold}
+.adj-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:15px 0}
+.adj-btn{padding:14px;border:3px solid #eee;border-radius:14px;font-size:1.1em;font-weight:bold;cursor:pointer;transition:all .25s;background:#fff;text-align:center;user-select:none}
+.adj-btn:hover{transform:scale(1.05);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.adj-btn.selected{border-color:#66BB6A;background:#E8F5E9;transform:scale(1.08)}
+.adj-btn.used{opacity:.4;pointer-events:none}
+.sentence-box{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:14px;padding:16px;margin:12px 0;text-align:center;min-height:50px}
+.sentence-box .sent{font-size:1.3em;color:#2E7D32;font-weight:bold}
+.progress{display:flex;gap:6px;justify-content:center;margin:10px 0}
+.dot{width:18px;height:18px;border-radius:50%;background:#eee;transition:all .3s}
+.dot.done{background:#66BB6A}.dot.current{background:#FFD54F;transform:scale(1.3)}
+.score{text-align:center;font-size:1.8em;margin:8px 0}
+.speak-prompt{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:12px;padding:14px;margin:12px 0;text-align:center;border:2px dashed #66BB6A}
+.btn{padding:14px 30px;border:none;border-radius:14px;font-size:1.1em;font-weight:bold;cursor:pointer;transition:all .2s;margin:5px}
+.btn:hover{transform:scale(1.05)}
+.btn-next{background:linear-gradient(135deg,#F06292,#AD1457);color:#fff}
+.btn-success{background:linear-gradient(135deg,#66BB6A,#2E7D32);color:#fff}
+.celebration{font-size:3em;text-align:center;animation:bounce .6s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.confetti{position:fixed;top:-10px;pointer-events:none;z-index:9999}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+.built-sentences{margin:10px 0}
+.built-sent{padding:10px 14px;margin:5px 0;border-radius:10px;font-weight:bold;font-size:1.05em}
+.hook{background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border-radius:12px;padding:15px;margin:15px 0;text-align:center;border:2px solid #FFB74D}
+.hook h3{color:#E65100;font-size:1.1em;margin-bottom:5px}.hook p{color:#F57C00;font-size:.95em}
+</style>
+</head>
+<body>
+<div class="header"><h1>👨‍👩‍👧‍👦 Describe My Family!</h1><p>Pick a describing word for each family member!</p></div>
+<div class="game" id="game"></div>
+<script>
+const AudioCtx=window.AudioContext||window.webkitAudioContext;let audioCtx;
+function initAudio(){if(!audioCtx)audioCtx=new AudioCtx()}
+function playDing(){initAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.setValueAtTime(523,audioCtx.currentTime);o.frequency.setValueAtTime(659,audioCtx.currentTime+.1);o.frequency.setValueAtTime(784,audioCtx.currentTime+.2);g.gain.setValueAtTime(.3,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+.4);o.start();o.stop(audioCtx.currentTime+.4)}
+function playCelebration(){initAudio();[523,659,784,1047].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.2,audioCtx.currentTime+i*.15);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+i*.15+.3);o.start(audioCtx.currentTime+i*.15);o.stop(audioCtx.currentTime+i*.15+.3)})}
+function showConfetti(n=30){const colors=['#FF6B6B','#FFD54F','#66BB6A','#7E57C2','#00BCD4','#FF9800','#E91E63'];for(let i=0;i<n;i++){const c=document.createElement('div');c.className='confetti';c.style.left=Math.random()*100+'vw';c.style.background=colors[Math.floor(Math.random()*colors.length)];c.style.width=(Math.random()*8+6)+'px';c.style.height=c.style.width;c.style.borderRadius=Math.random()>.5?'50%':'2px';c.style.animation=`fall ${Math.random()*2+1.5}s linear forwards`;c.style.animationDelay=Math.random()*.5+'s';document.body.appendChild(c);setTimeout(()=>c.remove(),4000)}}
+
+const family=[
+  {member:"Mother",emoji:"👩",hint:"She takes care of you every day!"},
+  {member:"Father",emoji:"👨",hint:"He is always there for you!"},
+  {member:"Sister",emoji:"👧",hint:"She shares your room or toys!"},
+  {member:"Brother",emoji:"👦",hint:"He plays games with you!"},
+  {member:"Grandma",emoji:"👵",hint:"She tells the best stories!"},
+  {member:"Grandpa",emoji:"👴",hint:"He has the most wisdom!"},
+];
+const adjectives=["kind","tall","funny","smart","loving","strong","beautiful","young","caring","brave","gentle","happy"];
+let cur=0,sentences=[],selectedAdj=null;
+
+function shuffleAdjs(){
+  const shuffled=[...adjectives].sort(()=>Math.random()-.5);
+  return shuffled.slice(0,6);
+}
+
+let currentAdjs=shuffleAdjs();
+
+function render(){
+  if(cur>=family.length){showEnd();return}
+  selectedAdj=null;
+  currentAdjs=shuffleAdjs();
+  const f=family[cur];
+  const dots=family.map((_,i)=>`<div class="dot ${i<cur?'done':''} ${i===cur?'current':''}"></div>`).join('');
+  const g=document.getElementById('game');
+  g.innerHTML=`
+    <div class="progress">${dots}</div>
+    <div style="font-size:.9em;color:#888;text-align:center">Family member ${cur+1} of ${family.length}</div>
+    <div class="family-card">
+      <div class="family-emoji">${f.emoji}</div>
+      <div class="family-name">${f.member}</div>
+      <div style="font-size:.9em;color:#888;margin-top:4px">${f.hint}</div>
+    </div>
+    <div style="text-align:center;font-weight:bold;color:#AD1457;margin:8px 0">Pick a describing word for your ${f.member.toLowerCase()}!</div>
+    <div class="adj-grid">${currentAdjs.map(a=>`<div class="adj-btn" onclick="pickAdj('${a}',this)">${a}</div>`).join('')}</div>
+    <div class="sentence-box"><div class="sent" id="preview">"This is my ___ ${f.member.toLowerCase()}."</div></div>
+    <div style="text-align:center"><button class="btn btn-next" id="nextBtn" onclick="confirmAndNext()" style="display:none">🎤 Say it & Next →</button></div>
+    ${sentences.length>0?`<div class="built-sentences">${sentences.map((s,i)=>`<div class="built-sent" style="background:${['#F3E5F5','#E3F2FD','#FFF3E0','#E8F5E9','#FCE4EC','#FFF8E1'][i]};color:${['#7E57C2','#1565C0','#E65100','#2E7D32','#AD1457','#F57F17'][i]}">${s} ✅</div>`).join('')}</div>`:''}`;
+}
+
+function pickAdj(adj,el){
+  document.querySelectorAll('.adj-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedAdj=adj;
+  const f=family[cur];
+  document.getElementById('preview').textContent=`"This is my ${adj} ${f.member.toLowerCase()}."`;
+  document.getElementById('nextBtn').style.display='inline-block';
+  playDing();
+}
+
+function confirmAndNext(){
+  if(!selectedAdj)return;
+  const f=family[cur];
+  sentences.push(`"This is my ${selectedAdj} ${f.member.toLowerCase()}."`);
+  showConfetti(12);
+  cur++;
+  render();
+}
+
+function showEnd(){
+  playCelebration();showConfetti(50);
+  const g=document.getElementById('game');
+  g.innerHTML=`
+    <div class="celebration">👨‍👩‍👧‍👦</div>
+    <h2 style="text-align:center;color:#AD1457;margin:10px 0">Your Family Introduction!</h2>
+    <div class="built-sentences">
+      ${sentences.map((s,i)=>`<div class="built-sent" style="background:${['#F3E5F5','#E3F2FD','#FFF3E0','#E8F5E9','#FCE4EC','#FFF8E1'][i]};color:${['#7E57C2','#1565C0','#E65100','#2E7D32','#AD1457','#F57F17'][i]};font-size:1.2em">${s}</div>`).join('')}
+    </div>
+    <div class="score">${'⭐'.repeat(6)}</div>
+    <div class="speak-prompt">
+      <strong>🎤 GRAND CHALLENGE:</strong><br>
+      Say ALL 6 sentences without stopping!<br>
+      Introduce your WHOLE family to someone!<br>
+      Can you do it in under 20 seconds? GO!
+    </div>
+    <div class="speak-prompt" style="background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border-color:#FFB74D">
+      <strong>🏠 HOMEWORK:</strong> Introduce your family to a friend or neighbour tonight — in English!
+    </div>
+    <div class="hook">
+      <h3>🔮 Next class sneak peek!</h3>
+      <p>Next time you'll learn to talk about YOUR WHOLE DAY — morning, afternoon, and evening! What do you do first when you wake up? 🌅</p>
+    </div>
+    <div style="text-align:center;margin-top:15px">
+      <button class="btn btn-next" onclick="cur=0;sentences=[];render()">Play Again!</button>
+    </div>`;
+}
+render();
+</script></body></html>

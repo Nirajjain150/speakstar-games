@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SpeakStar - Polite Words Challenge!</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Trebuchet MS',Arial,sans-serif;background:linear-gradient(135deg,#66BB6A,#1B5E20);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px;overflow-x:hidden}
+.header{text-align:center;color:#fff;margin-bottom:15px}.header h1{font-size:2.2em;text-shadow:2px 2px 4px rgba(0,0,0,.3)}
+.game{background:#fff;border-radius:20px;padding:25px;max-width:700px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.scenario{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:16px;padding:20px;margin:12px 0;text-align:center}
+.scenario-emoji{font-size:3em;margin-bottom:8px;display:block}
+.scenario-text{font-size:1.2em;color:#2D3436;line-height:1.5}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:15px 0}
+.choice{padding:16px;border:3px solid #eee;border-radius:14px;font-size:1.1em;font-weight:bold;cursor:pointer;transition:all .25s;background:#fff;text-align:center;user-select:none}
+.choice:hover{transform:scale(1.05);box-shadow:0 4px 15px rgba(0,0,0,.1)}
+.choice.c-please{border-color:#2196F3;color:#1565C0}.choice.c-please:hover{background:#E3F2FD}
+.choice.c-thankyou{border-color:#66BB6A;color:#2E7D32}.choice.c-thankyou:hover{background:#E8F5E9}
+.choice.c-sorry{border-color:#FFA726;color:#E65100}.choice.c-sorry:hover{background:#FFF3E0}
+.choice.c-excuse{border-color:#7E57C2;color:#4A148C}.choice.c-excuse:hover{background:#F3E5F5}
+.choice.correct{background:#E8F5E9;border-color:#66BB6A;transform:scale(1.08);animation:pulse .5s}
+.choice.wrong{background:#FBE9E7;border-color:#FF6B6B;animation:shake .4s}
+.choice.disabled{pointer-events:none;opacity:.5}
+@keyframes pulse{0%,100%{transform:scale(1.08)}50%{transform:scale(1.15)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.progress{display:flex;gap:6px;justify-content:center;margin:10px 0}
+.dot{width:18px;height:18px;border-radius:50%;background:#eee;transition:all .3s}
+.dot.done{background:#66BB6A}.dot.current{background:#FFD54F;transform:scale(1.3)}
+.fb{text-align:center;font-size:1.2em;font-weight:bold;min-height:40px;margin:10px 0}
+.score{text-align:center;font-size:1.8em;margin:8px 0}
+.speak-prompt{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:12px;padding:14px;margin:10px 0;text-align:center;border:2px dashed #66BB6A}
+.polite-tip{background:#FFF8E1;border-radius:10px;padding:10px 14px;margin:8px 0;font-size:.9em;color:#F57F17;text-align:center;border-left:4px solid #FFB74D}
+.streak{display:inline-block;background:linear-gradient(135deg,#FF6F00,#FF9800);color:#fff;padding:4px 14px;border-radius:20px;font-size:.85em;font-weight:bold}
+.btn{padding:14px 30px;border:none;border-radius:14px;font-size:1.1em;font-weight:bold;cursor:pointer;transition:all .2s;margin:5px}
+.btn:hover{transform:scale(1.05)}
+.btn-next{background:linear-gradient(135deg,#66BB6A,#2E7D32);color:#fff}
+.celebration{font-size:3.5em;text-align:center;animation:bounce .6s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.confetti{position:fixed;top:-10px;pointer-events:none;z-index:9999}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+.hook{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:12px;padding:15px;margin:15px 0;text-align:center;border:2px solid #66BB6A}
+.hook h3{color:#1B5E20;font-size:1.1em;margin-bottom:5px}.hook p{color:#2E7D32;font-size:.95em}
+.roleplay{background:linear-gradient(135deg,#F3E5F5,#EDE7F6);border-radius:14px;padding:16px;margin:12px 0}
+.roleplay .line{padding:8px 12px;margin:4px 0;border-radius:10px;font-size:1em}
+.roleplay .you{background:#E8F5E9;color:#2E7D32;text-align:right}
+.roleplay .other{background:#E3F2FD;color:#1565C0;text-align:left}
+</style>
+</head>
+<body>
+<div class="header"><h1>🤝 Polite Words Challenge!</h1><p>Which magic word fits? Say it out loud!</p></div>
+<div class="game" id="game"></div>
+<script>
+const AudioCtx=window.AudioContext||window.webkitAudioContext;let audioCtx;
+function initAudio(){if(!audioCtx)audioCtx=new AudioCtx()}
+function playCorrect(){initAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.setValueAtTime(523,audioCtx.currentTime);o.frequency.setValueAtTime(659,audioCtx.currentTime+.1);o.frequency.setValueAtTime(784,audioCtx.currentTime+.2);g.gain.setValueAtTime(.3,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+.4);o.start();o.stop(audioCtx.currentTime+.4)}
+function playWrong(){initAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sawtooth';o.frequency.setValueAtTime(200,audioCtx.currentTime);o.frequency.setValueAtTime(150,audioCtx.currentTime+.15);g.gain.setValueAtTime(.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+.3);o.start();o.stop(audioCtx.currentTime+.3)}
+function playCelebration(){initAudio();[523,659,784,1047].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.2,audioCtx.currentTime+i*.15);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+i*.15+.3);o.start(audioCtx.currentTime+i*.15);o.stop(audioCtx.currentTime+i*.15+.3)})}
+function showConfetti(n=30){const colors=['#FF6B6B','#FFD54F','#66BB6A','#7E57C2','#00BCD4','#FF9800','#E91E63'];for(let i=0;i<n;i++){const c=document.createElement('div');c.className='confetti';c.style.left=Math.random()*100+'vw';c.style.background=colors[Math.floor(Math.random()*colors.length)];c.style.width=(Math.random()*8+6)+'px';c.style.height=c.style.width;c.style.borderRadius=Math.random()>.5?'50%':'2px';c.style.animation=`fall ${Math.random()*2+1.5}s linear forwards`;c.style.animationDelay=Math.random()*.5+'s';document.body.appendChild(c);setTimeout(()=>c.remove(),4000)}}
+
+const questions=[
+  {scenario:"You want your teacher to help you with a word. What do you say?",emoji:"🙋",
+   correct:"please",speak:'"Can you help me, PLEASE?"',
+   tip:"We say PLEASE when we ASK for something!",
+   choices:["Please","Thank you","Sorry","Excuse me"]},
+  {scenario:"Your friend shared their lunch with you. That was so nice! What do you say?",emoji:"🍱",
+   correct:"thank you",speak:'"THANK YOU for sharing your lunch!"',
+   tip:"We say THANK YOU when someone does something nice for us!",
+   choices:["Please","Thank you","Sorry","Excuse me"]},
+  {scenario:"Oh no! You accidentally stepped on someone's foot. What do you say?",emoji:"😬",
+   correct:"sorry",speak:'"I am SORRY! I did not mean to do that."',
+   tip:"We say SORRY when we make a mistake or hurt someone!",
+   choices:["Please","Thank you","Sorry","Excuse me"]},
+  {scenario:"You need to walk past someone who is blocking the way. What do you say?",emoji:"🚶",
+   correct:"excuse me",speak:'"EXCUSE ME, can I pass through?"',
+   tip:"We say EXCUSE ME when we need someone to move or when we interrupt!",
+   choices:["Please","Thank you","Sorry","Excuse me"]},
+  {scenario:"You want more rice at dinner. How do you ask politely?",emoji:"🍚",
+   correct:"please",speak:'"Can I have more rice, PLEASE?"',
+   tip:"Always say PLEASE when asking for something — it works like magic!",
+   choices:["Please","Thank you","Sorry","Excuse me"]},
+  {scenario:"Your grandmother gave you a birthday present! What do you say?",emoji:"🎁",
+   correct:"thank you",speak:'"THANK YOU, Grandma! I love it!"',
+   tip:"A big smile + THANK YOU = the best way to receive a gift!",
+   choices:["Please","Thank you","Sorry","Excuse me"]},
+  {scenario:"You accidentally spilled water on your friend's notebook. What do you say?",emoji:"💦",
+   correct:"sorry",speak:'"I am so SORRY! Let me help you clean it."',
+   tip:"SORRY + offering to help = being a great friend!",
+   choices:["Please","Thank you","Sorry","Excuse me"]},
+  {scenario:"You need to ask the teacher a question but they are talking to someone. What do you say?",emoji:"✋",
+   correct:"excuse me",speak:'"EXCUSE ME, teacher. Can I ask a question?"',
+   tip:"EXCUSE ME is the polite way to get someone's attention!",
+   choices:["Please","Thank you","Sorry","Excuse me"]},
+  {scenario:"Someone offers you food but you're not hungry. How do you say no politely?",emoji:"🙅",
+   correct:"thank you",speak:'"No, THANK YOU! I am full."',
+   tip:"Even when saying NO, add THANK YOU to be polite — 'No, thank you!'",
+   choices:["Please","Thank you","Sorry","Excuse me"]},
+  {scenario:"You want to borrow your friend's pencil. How do you ask?",emoji:"✏️",
+   correct:"please",speak:'"Can I borrow your pencil, PLEASE?"',
+   tip:"PLEASE makes people WANT to help you! It's magical!",
+   choices:["Please","Thank you","Sorry","Excuse me"]},
+];
+const wordClass={"please":"c-please","thank you":"c-thankyou","sorry":"c-sorry","excuse me":"c-excuse"};
+let cur=0,score=0,streak=0,answered=false;
+
+function render(){
+  if(cur>=questions.length){showEnd();return}
+  answered=false;const q=questions[cur];
+  const dots=questions.map((_,i)=>`<div class="dot ${i<cur?'done':''} ${i===cur?'current':''}"></div>`).join('');
+  document.getElementById('game').innerHTML=`
+    <div class="progress">${dots}</div>
+    <div style="font-size:.9em;color:#888;text-align:center">Situation ${cur+1} of ${questions.length} ${streak>=3?`<span class="streak">🔥 ${streak} in a row!</span>`:''}</div>
+    <div class="scenario">
+      <span class="scenario-emoji">${q.emoji}</span>
+      <div class="scenario-text">${q.scenario}</div>
+    </div>
+    <div style="text-align:center;font-weight:bold;color:#1B5E20;margin:8px 0">Which magic word fits?</div>
+    <div class="choices">${q.choices.map((c,i)=>`<div class="choice ${wordClass[c.toLowerCase()]}" onclick="pick(${i})">${c}</div>`).join('')}</div>
+    <div class="fb" id="fb"></div>
+    <div class="score">${'⭐'.repeat(score)}${'☆'.repeat(questions.length-score)}</div>`;
+}
+
+function pick(idx){
+  if(answered)return;answered=true;
+  const q=questions[cur];const choices=document.querySelectorAll('.choice');
+  choices.forEach(c=>c.classList.add('disabled'));
+  const picked=q.choices[idx].toLowerCase();
+  const correctIdx=q.choices.findIndex(c=>c.toLowerCase()===q.correct);
+  const fb=document.getElementById('fb');
+  if(picked===q.correct){
+    playCorrect();choices[idx].classList.add('correct');score++;streak++;
+    if(streak>=3)showConfetti(15);
+    fb.innerHTML=`<span style="color:#66BB6A">✅ YES! ${q.choices[correctIdx].toUpperCase()}!</span>`;
+    setTimeout(()=>{
+      fb.innerHTML+=`<div class="polite-tip">💡 ${q.tip}</div><div class="speak-prompt">🎤 Say: ${q.speak}</div>`;
+    },500);
+  }else{
+    playWrong();choices[idx].classList.add('wrong');choices[correctIdx].classList.add('correct');streak=0;
+    fb.innerHTML=`<span style="color:#FF6B6B">Not quite! It's ${q.choices[correctIdx].toUpperCase()}!</span>`;
+    setTimeout(()=>{
+      fb.innerHTML+=`<div class="polite-tip">💡 ${q.tip}</div><div class="speak-prompt">🎤 Say: ${q.speak}</div>`;
+    },500);
+  }
+  setTimeout(()=>{cur++;render()},4000);
+}
+
+function showEnd(){
+  playCelebration();showConfetti(50);
+  const pct=Math.round(score/questions.length*100);
+  const msg=pct>=90?'POLITENESS CHAMPION! 🏆':pct>=70?'Very polite! 🌟':pct>=50?'Getting politer! 💪':'Keep practising! 🌱';
+  document.getElementById('game').innerHTML=`
+    <div class="celebration">🤝</div>
+    <h2 style="text-align:center;color:#1B5E20;margin:10px 0">${msg}</h2>
+    <div class="score">${'⭐'.repeat(score)}${'☆'.repeat(questions.length-score)}</div>
+    <p style="text-align:center;font-size:1.3em;margin:10px 0">${score}/${questions.length} correct! (${pct}%)</p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:15px 0">
+      <div style="background:#E3F2FD;padding:12px 18px;border-radius:12px;text-align:center;flex:1;min-width:130px">
+        <div style="font-size:1.2em;font-weight:bold;color:#1565C0">Please</div>
+        <div style="font-size:.8em;color:#888">When you ASK</div>
+      </div>
+      <div style="background:#E8F5E9;padding:12px 18px;border-radius:12px;text-align:center;flex:1;min-width:130px">
+        <div style="font-size:1.2em;font-weight:bold;color:#2E7D32">Thank you</div>
+        <div style="font-size:.8em;color:#888">When someone helps</div>
+      </div>
+      <div style="background:#FFF3E0;padding:12px 18px;border-radius:12px;text-align:center;flex:1;min-width:130px">
+        <div style="font-size:1.2em;font-weight:bold;color:#E65100">Sorry</div>
+        <div style="font-size:.8em;color:#888">When you make a mistake</div>
+      </div>
+      <div style="background:#F3E5F5;padding:12px 18px;border-radius:12px;text-align:center;flex:1;min-width:130px">
+        <div style="font-size:1.2em;font-weight:bold;color:#4A148C">Excuse me</div>
+        <div style="font-size:.8em;color:#888">When you interrupt</div>
+      </div>
+    </div>
+    <div class="speak-prompt">
+      <strong>🎤 SPEAKING CHALLENGE:</strong><br>
+      Make up a sentence for EACH magic word! Say all 4 out loud!
+    </div>
+    <div class="roleplay">
+      <div style="text-align:center;font-weight:bold;color:#7E57C2;margin-bottom:8px">🎭 Bonus: Polite refusal practice!</div>
+      <div class="line other">👫 "Do you want some cake?"</div>
+      <div class="line you">🙋 "No, thank you! I am full."</div>
+      <div class="line other">👫 "Are you sure?"</div>
+      <div class="line you">🙋 "Yes, thank you! It looks yummy but I already ate!"</div>
+    </div>
+    <div class="hook">
+      <h3>🔮 Next class sneak peek!</h3>
+      <p>Next time you'll learn the BECAUSE superpower! Don't just say what you like — say WHY! "I like pizza BECAUSE it is cheesy!" Can you think of 3 things you like with a reason? 🤔</p>
+    </div>
+    <div style="text-align:center;margin-top:15px">
+      <button class="btn btn-next" onclick="cur=0;score=0;streak=0;render()">Play Again!</button>
+    </div>`;
+}
+render();
+</script></body></html>

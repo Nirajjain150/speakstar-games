@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SpeakStar - Story Sequencer!</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Trebuchet MS',Arial,sans-serif;background:linear-gradient(135deg,#8E24AA,#4A148C);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px;overflow-x:hidden}
+.header{text-align:center;color:#fff;margin-bottom:15px}.header h1{font-size:2.2em;text-shadow:2px 2px 4px rgba(0,0,0,.3)}
+.game{background:#fff;border-radius:20px;padding:25px;max-width:700px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.story-title{text-align:center;font-size:1.3em;color:#8E24AA;font-weight:bold;margin:10px 0}
+.slots{display:flex;flex-direction:column;gap:10px;margin:15px 0}
+.slot{display:flex;align-items:center;gap:10px;padding:12px;border:2px dashed #ddd;border-radius:12px;min-height:55px;transition:.3s;background:#fafafa}
+.slot.filled{border-color:#8E24AA;border-style:solid;background:#F3E5F5}
+.slot.correct-slot{border-color:#66BB6A;background:#E8F5E9}
+.slot.wrong-slot{border-color:#FF6B6B;background:#FBE9E7;animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.slot-label{min-width:70px;padding:6px 12px;border-radius:8px;color:#fff;font-weight:bold;font-size:.9em;text-align:center}
+.slot-text{flex:1;font-size:1.05em;color:#2D3436}
+.sentences{display:flex;flex-direction:column;gap:8px;margin:15px 0}
+.sentence{padding:12px 16px;border:2px solid #e0e0e0;border-radius:12px;cursor:pointer;transition:.2s;background:#fff;font-size:1.05em;color:#2D3436;text-align:center}
+.sentence:hover{transform:scale(1.02);border-color:#8E24AA;box-shadow:0 3px 10px rgba(0,0,0,.08)}
+.sentence.used{opacity:.3;pointer-events:none;text-decoration:line-through}
+.progress{display:flex;gap:6px;justify-content:center;margin:10px 0}
+.dot{width:16px;height:16px;border-radius:50%;background:#eee;transition:.3s}.dot.done{background:#66BB6A}.dot.current{background:#FFD54F;transform:scale(1.3)}
+.fb{text-align:center;font-size:1.1em;font-weight:bold;min-height:35px;margin:10px 0}
+.btn{padding:14px 30px;border:none;border-radius:14px;font-size:1.1em;font-weight:bold;cursor:pointer;transition:.2s;margin:5px}
+.btn:hover{transform:scale(1.05)}
+.btn-check{background:#FFD54F;color:#2D3436}.btn-play{background:linear-gradient(135deg,#8E24AA,#4A148C);color:#fff}
+.score{text-align:center;font-size:1.8em;margin:8px 0}
+.speak{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:12px;padding:12px;margin:10px 0;text-align:center;border:2px dashed #66BB6A}
+.celebration{font-size:3.5em;text-align:center;animation:bounce .6s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.confetti{position:fixed;top:-10px;pointer-events:none;z-index:9999}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+.hook{background:linear-gradient(135deg,#F3E5F5,#E1BEE7);border-radius:12px;padding:15px;margin:15px 0;text-align:center;border:2px solid #CE93D8}
+</style>
+</head>
+<body>
+<div class="header"><h1>📖 Story Sequencer! 📖</h1><p>Put the story in the right order!</p></div>
+<div class="game" id="game"></div>
+<script>
+const AudioCtx=window.AudioContext||window.webkitAudioContext;let audioCtx;
+function initAudio(){if(!audioCtx)audioCtx=new AudioCtx()}
+function playCorrect(){initAudio();[523,659,784].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.2,audioCtx.currentTime+i*.1);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+i*.1+.2);o.start(audioCtx.currentTime+i*.1);o.stop(audioCtx.currentTime+i*.1+.2)})}
+function playWrong(){initAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sawtooth';o.frequency.setValueAtTime(200,audioCtx.currentTime);o.frequency.setValueAtTime(150,audioCtx.currentTime+.15);g.gain.setValueAtTime(.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+.3);o.start();o.stop(audioCtx.currentTime+.3)}
+function playCelebration(){initAudio();[523,659,784,1047].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.2,audioCtx.currentTime+i*.15);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+i*.15+.3);o.start(audioCtx.currentTime+i*.15);o.stop(audioCtx.currentTime+i*.15+.3)})}
+function showConfetti(n=30){const colors=['#FF6B6B','#FFD54F','#66BB6A','#7E57C2','#00BCD4','#FF9800','#E91E63'];for(let i=0;i<n;i++){const c=document.createElement('div');c.className='confetti';c.style.left=Math.random()*100+'vw';c.style.background=colors[Math.floor(Math.random()*colors.length)];c.style.width=(Math.random()*8+6)+'px';c.style.height=c.style.width;c.style.borderRadius=Math.random()>.5?'50%':'2px';c.style.animation=`fall ${Math.random()*2+1.5}s linear forwards`;c.style.animationDelay=Math.random()*.5+'s';document.body.appendChild(c);setTimeout(()=>c.remove(),4000)}}
+
+const labels=[{text:"First,",color:"#00BCD4"},{text:"Then,",color:"#66BB6A"},{text:"Next,",color:"#FFA726"},{text:"Finally,",color:"#7E57C2"}];
+
+const stories=[
+  {title:"🌅 Ria's Morning",correct:["she woke up and stretched.","she brushed her teeth.","she ate breakfast with her family.","she went to school on the bus."],shuffled:[2,0,3,1]},
+  {title:"🎂 The Birthday Party",correct:["the friends arrived at the party.","they played musical chairs together.","everyone ate cake and ice cream.","they said goodbye and went home happy."],shuffled:[3,1,0,2]},
+  {title:"🐶 The Lost Puppy",correct:["Arjun found a little puppy in the rain.","he took the puppy home carefully.","he gave the puppy warm milk and a blanket.","the puppy fell asleep in Arjun's arms."],shuffled:[1,3,0,2]},
+  {title:"🏏 The Cricket Match",correct:["the two teams lined up on the field.","our team batted first and scored many runs.","then the other team tried to chase our score.","we won the match and everyone cheered!"],shuffled:[2,0,3,1]},
+];
+let cur=0,score=0,placed=[];
+function shuffle(a,order){return order.map(i=>a[i])}
+function render(){
+  if(cur>=stories.length){showEnd();return}
+  placed=[];
+  const st=stories[cur];
+  const shuffledSentences=shuffle(st.correct,st.shuffled);
+  const dots=stories.map((_,i)=>`<div class="dot ${i<cur?'done':''} ${i===cur?'current':''}"></div>`).join('');
+  document.getElementById('game').innerHTML=`
+    <div class="progress">${dots}</div>
+    <div class="story-title">${st.title}</div>
+    <p style="text-align:center;color:#888;margin:5px 0">Click sentences in the right order!</p>
+    <div class="slots" id="slots">
+      ${labels.map((l,i)=>`<div class="slot" id="slot-${i}"><span class="slot-label" style="background:${l.color}">${l.text}</span><span class="slot-text" id="slot-text-${i}">Click a sentence below...</span></div>`).join('')}
+    </div>
+    <div class="sentences" id="sentences">
+      ${shuffledSentences.map((s,i)=>`<div class="sentence" data-text="${s}" data-orig="${st.shuffled[i]}" onclick="placeSentence(this)">${s}</div>`).join('')}
+    </div>
+    <div class="fb" id="fb"></div>
+    <div style="text-align:center"><button class="btn btn-check" onclick="checkOrder()">✓ Check my order!</button></div>
+    <div class="score">${'⭐'.repeat(score)}${'☆'.repeat(stories.length-score)}</div>`;
+}
+function placeSentence(el){
+  if(el.classList.contains('used'))return;
+  if(placed.length>=4)return;
+  el.classList.add('used');
+  const slotIdx=placed.length;
+  placed.push(el.dataset.text);
+  document.getElementById('slot-'+slotIdx).classList.add('filled');
+  document.getElementById('slot-text-'+slotIdx).textContent=el.dataset.text;
+}
+function checkOrder(){
+  if(placed.length<4){document.getElementById('fb').innerHTML='<span style="color:#FF6B6B">Place all 4 sentences first!</span>';return}
+  const st=stories[cur];
+  let allCorrect=true;
+  for(let i=0;i<4;i++){
+    const slot=document.getElementById('slot-'+i);
+    if(placed[i]===st.correct[i]){slot.classList.add('correct-slot')}
+    else{slot.classList.add('wrong-slot');allCorrect=false}
+  }
+  if(allCorrect){
+    playCorrect();showConfetti(25);score++;
+    document.getElementById('fb').innerHTML='<span style="color:#66BB6A">✅ Perfect order!</span>';
+    setTimeout(()=>{
+      document.getElementById('fb').innerHTML+='<div class="speak">🎤 Now read the whole story out loud using First, Then, Next, Finally!</div>';
+    },500);
+    setTimeout(()=>{cur++;render()},4000);
+  }else{
+    playWrong();
+    document.getElementById('fb').innerHTML='<span style="color:#FF6B6B">Some sentences are in the wrong spot! Try again!</span>';
+    setTimeout(()=>{
+      placed=[];
+      document.querySelectorAll('.sentence').forEach(s=>s.classList.remove('used'));
+      document.querySelectorAll('.slot').forEach(s=>{s.classList.remove('filled','correct-slot','wrong-slot')});
+      for(let i=0;i<4;i++)document.getElementById('slot-text-'+i).textContent='Click a sentence below...';
+      document.getElementById('fb').innerHTML='';
+    },2000);
+  }
+}
+function showEnd(){
+  playCelebration();showConfetti(50);
+  document.getElementById('game').innerHTML=`
+    <div class="celebration">📖</div>
+    <h2 style="text-align:center;color:#8E24AA;margin:15px 0">${score>=3?'Story Master! 🏆':score>=2?'Great storyteller! 🌟':'Keep practising! 💪'}</h2>
+    <div class="score">${'⭐'.repeat(score)}${'☆'.repeat(stories.length-score)}</div>
+    <p style="text-align:center;font-size:1.3em">${score}/${stories.length} stories in perfect order!</p>
+    <div class="speak">🎤 <strong>Your turn!</strong> Tell a story about YOUR yesterday using: First, Then, Next, Finally!</div>
+    <div class="hook">
+      <h3 style="color:#4A148C">🔮 Story challenge!</h3>
+      <p style="color:#8E24AA">Can you make up a story about a talking parrot who goes to school? Use First, Then, Next, Finally! Tell someone tonight! 🦜📚</p>
+    </div>
+    <div style="text-align:center;margin-top:15px"><button class="btn btn-play" onclick="cur=0;score=0;render()">Play Again!</button></div>`;
+}
+render();
+</script></body></html>

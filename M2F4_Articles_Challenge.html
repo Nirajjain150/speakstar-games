@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SpeakStar - A, An, The Challenge!</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Trebuchet MS',Arial,sans-serif;background:linear-gradient(135deg,#00BCD4,#006064);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px;overflow-x:hidden}
+.header{text-align:center;color:#fff;margin-bottom:15px}.header h1{font-size:2.2em;text-shadow:2px 2px 4px rgba(0,0,0,.3)}
+.game{background:#fff;border-radius:20px;padding:25px;max-width:700px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.sentence-card{background:linear-gradient(135deg,#F0FAFA,#E0F7FA);border-radius:16px;padding:20px;margin:15px 0;text-align:center}
+.sentence{font-size:1.5em;color:#2D3436;line-height:1.6}
+.blank{display:inline-block;min-width:60px;border-bottom:3px dashed #00BCD4;color:#00BCD4;font-weight:bold;margin:0 4px;padding:0 8px}
+.blank.filled{border-bottom-color:#66BB6A;color:#66BB6A;background:#E8F5E9;border-radius:8px;padding:2px 10px}
+.blank.wrong-fill{border-bottom-color:#FF6B6B;color:#FF6B6B;background:#FBE9E7;border-radius:8px;padding:2px 10px;animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.choices{display:flex;gap:15px;justify-content:center;margin:20px 0}
+.choice{padding:16px 32px;border:3px solid #e0e0e0;border-radius:16px;font-size:1.4em;font-weight:bold;cursor:pointer;transition:all .25s;background:#fff;min-width:80px;text-align:center;user-select:none}
+.choice:hover{transform:scale(1.1);box-shadow:0 6px 20px rgba(0,0,0,.12)}
+.choice.c-a{border-color:#00BCD4;color:#00BCD4}.choice.c-a:hover{background:#E0F7FA}
+.choice.c-an{border-color:#FFA726;color:#E65100}.choice.c-an:hover{background:#FFF3E0}
+.choice.c-the{border-color:#7E57C2;color:#7E57C2}.choice.c-the:hover{background:#F3E5F5}
+.choice.correct{border-color:#66BB6A;background:#E8F5E9;color:#2E7D32;transform:scale(1.1)}
+.choice.wrong{border-color:#FF6B6B;background:#FBE9E7;color:#C62828;animation:shake .4s}
+.choice.disabled{pointer-events:none;opacity:.4}
+.rule-tip{background:#FFF8E1;border-radius:10px;padding:10px 16px;margin:10px 0;font-size:.9em;color:#F57F17;text-align:center;border-left:4px solid #FFB74D}
+.progress{display:flex;gap:6px;justify-content:center;margin:10px 0}
+.dot{width:16px;height:16px;border-radius:50%;background:#eee;transition:all .3s}
+.dot.done{background:#66BB6A}.dot.current{background:#FFD54F;transform:scale(1.3)}
+.fb{text-align:center;font-size:1.2em;font-weight:bold;min-height:40px;margin:12px 0}
+.score{text-align:center;font-size:1.8em;margin:8px 0}
+.speak-prompt{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:12px;padding:12px;margin:10px 0;text-align:center;border:2px dashed #66BB6A}
+.speak-prompt .mic{font-size:1.3em;margin-right:6px}
+.streak{display:inline-block;background:linear-gradient(135deg,#FF6F00,#FF9800);color:#fff;padding:4px 14px;border-radius:20px;font-size:.85em;font-weight:bold}
+.btn{padding:14px 30px;border:none;border-radius:14px;font-size:1.1em;font-weight:bold;cursor:pointer;transition:all .2s;margin:5px}
+.btn:hover{transform:scale(1.05)}
+.btn-next{background:linear-gradient(135deg,#00BCD4,#006064);color:#fff}
+.celebration{font-size:3.5em;text-align:center;animation:bounce .6s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.confetti{position:fixed;top:-10px;pointer-events:none;z-index:9999}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+.hook{background:linear-gradient(135deg,#E0F7FA,#B2EBF2);border-radius:12px;padding:15px;margin:15px 0;text-align:center;border:2px solid #4DD0E1}
+.hook h3{color:#006064;font-size:1.1em;margin-bottom:5px}
+.hook p{color:#00838F;font-size:.95em}
+.fun-fact{background:#FFF3E0;border-radius:10px;padding:8px 14px;margin:8px 0;font-size:.85em;color:#E65100;text-align:center}
+</style>
+</head>
+<body>
+<div class="header"><h1>📖 A, An, The Challenge! 📖</h1><p>Pick the right magic helper word — then SAY the sentence!</p></div>
+<div class="game" id="game"></div>
+<script>
+const AudioCtx=window.AudioContext||window.webkitAudioContext;let audioCtx;
+function initAudio(){if(!audioCtx)audioCtx=new AudioCtx()}
+function playCorrect(){initAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.setValueAtTime(523,audioCtx.currentTime);o.frequency.setValueAtTime(659,audioCtx.currentTime+.1);o.frequency.setValueAtTime(784,audioCtx.currentTime+.2);g.gain.setValueAtTime(.3,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+.4);o.start();o.stop(audioCtx.currentTime+.4)}
+function playWrong(){initAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sawtooth';o.frequency.setValueAtTime(200,audioCtx.currentTime);o.frequency.setValueAtTime(150,audioCtx.currentTime+.15);g.gain.setValueAtTime(.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+.3);o.start();o.stop(audioCtx.currentTime+.3)}
+function playCelebration(){initAudio();[523,659,784,1047].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.2,audioCtx.currentTime+i*.15);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+i*.15+.3);o.start(audioCtx.currentTime+i*.15);o.stop(audioCtx.currentTime+i*.15+.3)})}
+function showConfetti(n=30){const colors=['#FF6B6B','#FFD54F','#66BB6A','#7E57C2','#00BCD4','#FF9800','#E91E63'];for(let i=0;i<n;i++){const c=document.createElement('div');c.className='confetti';c.style.left=Math.random()*100+'vw';c.style.background=colors[Math.floor(Math.random()*colors.length)];c.style.width=(Math.random()*8+6)+'px';c.style.height=c.style.width;c.style.borderRadius=Math.random()>.5?'50%':'2px';c.style.animation=`fall ${Math.random()*2+1.5}s linear forwards`;c.style.animationDelay=Math.random()*.5+'s';document.body.appendChild(c);setTimeout(()=>c.remove(),4000)}}
+
+const questions=[
+  {sentence:'I see ___ big elephant at the zoo!',blank:'an',rule:'Elephant starts with E (vowel) = AN!',speak:'Say the FULL sentence: "I see AN big elephant at the zoo!"',funFact:'Elephants can recognize themselves in a mirror! Smart, right? 🐘'},
+  {sentence:'Can I have ___ glass of water, please?',blank:'a',rule:'Glass starts with G (consonant) = A!',speak:'Say it politely: "Can I have A glass of water, PLEASE?"',funFact:'You said PLEASE! Now that\'s a polite SpeakStar! 🌟'},
+  {sentence:'Look! ___ moon is SO bright tonight!',blank:'the',rule:'There\'s only ONE moon = THE! (specific)',speak:'Point up and say: "THE moon is so bright tonight!"',funFact:'The moon doesn\'t make its own light — it reflects the sun! 🌙'},
+  {sentence:'My friend has ___ orange cat.',blank:'an',rule:'Orange starts with O (vowel) = AN!',speak:'Say: "My friend has AN orange cat."',funFact:'Orange cats are sometimes called "marmalade cats." Yummy name! 🐱'},
+  {sentence:'I want to read ___ book before sleeping.',blank:'a',rule:'Book starts with B (consonant) = A!',speak:'Say: "I want to read A book before sleeping."',funFact:'Reading before bed makes you dream more! What book would YOU read? 📚'},
+  {sentence:'___ sun is very hot today!',blank:'the',rule:'There\'s only ONE sun = THE! (specific)',speak:'Fan yourself and say: "THE sun is very hot today!"',funFact:'The sun is actually a STAR! The closest star to Earth! ☀️'},
+  {sentence:'I ate ___ apple for breakfast.',blank:'an',rule:'Apple starts with A (vowel) = AN!',speak:'Rub your tummy and say: "I ate AN apple for breakfast! Yummy!"',funFact:'An apple a day keeps the doctor away! 🍎'},
+  {sentence:'She is ___ best student in ___ class!',blank:'the',rule:'Best = specific (THE best, not just any best!)',speak:'Say proudly: "She is THE best student in THE class!"',funFact:'And YOU are THE best SpeakStar in YOUR class! 🏆'},
+  {sentence:'I saw ___ ice cream man near ___ park.',blank:'an',rule:'Ice starts with I (vowel) = AN!',speak:'Say excitedly: "I saw AN ice cream man near THE park!"',funFact:'What\'s YOUR favourite ice cream flavour? Tell me! 🍦'},
+  {sentence:'___ teacher gave us ___ homework today.',blank:'the',rule:'THE teacher = your specific teacher!',speak:'Say: "THE teacher gave us A homework today."',funFact:'Homework in English has a funny name — "home" + "work" = work you do at home! 😄'},
+];
+let cur=0,score=0,streak=0,answered=false;
+function render(){
+  if(cur>=questions.length){showEnd();return}
+  answered=false;const q=questions[cur];
+  const dots=questions.map((_,i)=>`<div class="dot ${i<cur?'done':''} ${i===cur?'current':''}"></div>`).join('');
+  const sentenceHTML=q.sentence.replace('___',`<span class="blank" id="bl">___</span>`);
+  document.getElementById('game').innerHTML=`
+    <div class="progress">${dots}</div>
+    <div style="font-size:.9em;color:#888;text-align:center">Question ${cur+1} of ${questions.length} ${streak>=3?`<span class="streak">🔥 ${streak} streak!</span>`:''}</div>
+    <div class="sentence-card"><div class="sentence">${sentenceHTML}</div></div>
+    <div style="text-align:center;font-weight:bold;color:#006064;margin:8px 0">Which magic word fits?</div>
+    <div class="choices">
+      <div class="choice c-a" onclick="pick('a')">A</div>
+      <div class="choice c-an" onclick="pick('an')">An</div>
+      <div class="choice c-the" onclick="pick('the')">The</div>
+    </div>
+    <div class="fb" id="fb"></div>
+    <div class="score">${'⭐'.repeat(score)}${'☆'.repeat(questions.length-score)}</div>`;
+}
+function pick(ans){
+  if(answered)return;answered=true;
+  const q=questions[cur];const bl=document.getElementById('bl');
+  const choices=document.querySelectorAll('.choice');
+  choices.forEach(c=>c.classList.add('disabled'));
+  const fb=document.getElementById('fb');
+  const correctClass={a:'c-a',an:'c-an',the:'c-the'}[q.blank];
+  if(ans===q.blank){
+    playCorrect();
+    bl.textContent=ans.toUpperCase();bl.classList.add('filled');
+    document.querySelector(`.choice.c-${ans}`).classList.add('correct');
+    score++;streak++;
+    if(streak>=3)showConfetti(15);
+    fb.innerHTML=`<span style="color:#66BB6A">✅ Perfect!</span>`;
+    setTimeout(()=>{
+      fb.innerHTML+=`<div class="rule-tip">📝 ${q.rule}</div><div class="speak-prompt"><span class="mic">🎤</span>${q.speak}</div><div class="fun-fact">💡 ${q.funFact}</div>`;
+    },500);
+  }else{
+    playWrong();
+    bl.textContent=ans.toUpperCase();bl.classList.add('wrong-fill');
+    document.querySelector(`.choice.c-${ans}`).classList.add('wrong');
+    document.querySelector(`.choice.${correctClass}`).classList.add('correct');
+    streak=0;
+    setTimeout(()=>{bl.textContent=q.blank.toUpperCase();bl.classList.remove('wrong-fill');bl.classList.add('filled')},800);
+    fb.innerHTML=`<span style="color:#FF6B6B">Not quite! It's ${q.blank.toUpperCase()}!</span>`;
+    setTimeout(()=>{
+      fb.innerHTML+=`<div class="rule-tip">📝 ${q.rule}</div><div class="speak-prompt"><span class="mic">🎤</span>${q.speak}</div>`;
+    },500);
+  }
+  setTimeout(()=>{cur++;render()},4000);
+}
+function showEnd(){
+  playCelebration();showConfetti(50);
+  const pct=Math.round(score/questions.length*100);
+  const msg=pct>=90?'ARTICLE CHAMPION! 🏆':pct>=70?'Great job! 🌟':pct>=50?'Getting better! 💪':'Keep practising! 🌱';
+  const aScore=questions.filter((q,i)=>i<cur&&q.blank==='a').length;
+  const anScore=questions.filter((q,i)=>i<cur&&q.blank==='an').length;
+  const theScore=questions.filter((q,i)=>i<cur&&q.blank==='the').length;
+  document.getElementById('game').innerHTML=`
+    <div class="celebration">📖</div>
+    <h2 style="text-align:center;color:#006064;margin:15px 0">${msg}</h2>
+    <div class="score">${'⭐'.repeat(score)}${'☆'.repeat(questions.length-score)}</div>
+    <p style="text-align:center;font-size:1.3em;margin:10px 0">${score}/${questions.length} correct! (${pct}%)</p>
+    <div style="display:flex;gap:15px;justify-content:center;margin:15px 0">
+      <div style="background:#E0F7FA;padding:12px 20px;border-radius:12px;text-align:center">
+        <div style="font-size:1.4em;font-weight:bold;color:#00BCD4">A</div>
+        <div style="font-size:.8em;color:#888">consonant</div>
+      </div>
+      <div style="background:#FFF3E0;padding:12px 20px;border-radius:12px;text-align:center">
+        <div style="font-size:1.4em;font-weight:bold;color:#E65100">An</div>
+        <div style="font-size:.8em;color:#888">vowel</div>
+      </div>
+      <div style="background:#F3E5F5;padding:12px 20px;border-radius:12px;text-align:center">
+        <div style="font-size:1.4em;font-weight:bold;color:#7E57C2">The</div>
+        <div style="font-size:.8em;color:#888">specific</div>
+      </div>
+    </div>
+    <div class="speak-prompt">
+      <span class="mic">🎤</span> <strong>SPEAKING CHALLENGE:</strong> Look around your room and make 3 sentences using A, AN, and THE!
+    </div>
+    <div class="hook">
+      <h3>🔮 Coming Up Next Class...</h3>
+      <p>What happens when there are TWO cats? THREE books? FIVE apples? We'll learn the MAGIC of making words PLURAL! But here's a puzzle — why is it "boxes" not "boxs"? 🤔 Find out next time!</p>
+    </div>
+    <div style="text-align:center;margin-top:15px">
+      <button class="btn btn-next" onclick="cur=0;score=0;streak=0;render()">Play Again!</button>
+    </div>`;
+}
+render();
+</script></body></html>

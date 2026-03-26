@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SpeakStar - Build Your Introduction!</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Trebuchet MS',Arial,sans-serif;background:linear-gradient(135deg,#7E57C2,#4A148C);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px;overflow-x:hidden}
+.header{text-align:center;color:#fff;margin-bottom:15px}.header h1{font-size:2.2em;text-shadow:2px 2px 4px rgba(0,0,0,.3)}
+.game{background:#fff;border-radius:20px;padding:25px;max-width:700px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.step-badge{display:inline-block;background:linear-gradient(135deg,#7E57C2,#9C27B0);color:#fff;padding:6px 18px;border-radius:20px;font-size:.9em;font-weight:bold;margin-bottom:10px}
+.prompt{background:linear-gradient(135deg,#F3E5F5,#EDE7F6);border-radius:14px;padding:18px;margin:12px 0;text-align:center}
+.prompt-text{font-size:1.3em;color:#4A148C;font-weight:bold;line-height:1.5}
+.input-area{margin:15px 0}
+.input-area label{display:block;font-size:.95em;color:#7E57C2;font-weight:bold;margin-bottom:6px}
+.input-area input,.input-area select{width:100%;padding:14px;border:3px solid #E0E0E0;border-radius:12px;font-size:1.1em;font-family:inherit;transition:all .3s}
+.input-area input:focus,.input-area select:focus{border-color:#7E57C2;outline:none;box-shadow:0 0 0 3px rgba(126,87,194,.2)}
+.sentence-preview{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:14px;padding:16px;margin:15px 0;text-align:center;min-height:60px;transition:all .3s}
+.sentence-preview .sentence{font-size:1.3em;color:#2E7D32;font-weight:bold;line-height:1.6}
+.sentence-preview .label{font-size:.8em;color:#66BB6A;margin-bottom:5px}
+.btn{padding:14px 30px;border:none;border-radius:14px;font-size:1.1em;font-weight:bold;cursor:pointer;transition:all .2s;display:inline-block;margin:5px}
+.btn:hover{transform:scale(1.05)}
+.btn-primary{background:linear-gradient(135deg,#7E57C2,#4A148C);color:#fff}
+.btn-success{background:linear-gradient(135deg,#66BB6A,#2E7D32);color:#fff}
+.all-sentences{background:#FAFAFA;border-radius:14px;padding:16px;margin:15px 0}
+.all-sentences .sent{padding:10px 14px;margin:6px 0;border-radius:10px;font-size:1.1em;font-weight:bold;transition:all .3s}
+.all-sentences .s1{background:#F3E5F5;color:#7E57C2}
+.all-sentences .s2{background:#E3F2FD;color:#1565C0}
+.all-sentences .s3{background:#FFF3E0;color:#E65100}
+.speak-prompt{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:12px;padding:14px;margin:12px 0;text-align:center;border:2px dashed #66BB6A;font-size:1em}
+.stars{text-align:center;font-size:2em;margin:10px 0}
+.celebration{font-size:3em;text-align:center;animation:bounce .6s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.confetti{position:fixed;top:-10px;pointer-events:none;z-index:9999}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+.progress-dots{display:flex;gap:8px;justify-content:center;margin:10px 0}
+.pdot{width:20px;height:20px;border-radius:50%;background:#eee;transition:all .3s;display:flex;align-items:center;justify-content:center;font-size:.7em;color:#fff;font-weight:bold}
+.pdot.done{background:#66BB6A}.pdot.current{background:#FFD54F;transform:scale(1.3)}.pdot.upcoming{background:#E0E0E0}
+.hook{background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border-radius:12px;padding:15px;margin:15px 0;text-align:center;border:2px solid #FFB74D}
+.hook h3{color:#E65100;font-size:1.1em;margin-bottom:5px}.hook p{color:#F57C00;font-size:.95em}
+</style>
+</head>
+<body>
+<div class="header"><h1>👋 Build Your Introduction!</h1><p>Create your 3 SpeakStar sentences — then say them out loud!</p></div>
+<div class="game" id="game"></div>
+<script>
+const AudioCtx=window.AudioContext||window.webkitAudioContext;let audioCtx;
+function initAudio(){if(!audioCtx)audioCtx=new AudioCtx()}
+function playDing(){initAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.setValueAtTime(523,audioCtx.currentTime);o.frequency.setValueAtTime(659,audioCtx.currentTime+.1);o.frequency.setValueAtTime(784,audioCtx.currentTime+.2);g.gain.setValueAtTime(.3,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+.4);o.start();o.stop(audioCtx.currentTime+.4)}
+function playCelebration(){initAudio();[523,659,784,1047].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.2,audioCtx.currentTime+i*.15);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+i*.15+.3);o.start(audioCtx.currentTime+i*.15);o.stop(audioCtx.currentTime+i*.15+.3)})}
+function showConfetti(n=30){const colors=['#FF6B6B','#FFD54F','#66BB6A','#7E57C2','#00BCD4','#FF9800','#E91E63','#2196F3'];for(let i=0;i<n;i++){const c=document.createElement('div');c.className='confetti';c.style.left=Math.random()*100+'vw';c.style.background=colors[Math.floor(Math.random()*colors.length)];c.style.width=(Math.random()*8+6)+'px';c.style.height=c.style.width;c.style.borderRadius=Math.random()>.5?'50%':'2px';c.style.animation=`fall ${Math.random()*2+1.5}s linear forwards`;c.style.animationDelay=Math.random()*.5+'s';document.body.appendChild(c);setTimeout(()=>c.remove(),4000)}}
+
+let step=0;const data={name:'',age:'',like:''};
+const likes=['pizza','cricket','drawing','dancing','reading','swimming','chocolate','football','singing','cooking','animals','video games'];
+
+function render(){
+  const g=document.getElementById('game');
+  const dots=[1,2,3].map(i=>`<div class="pdot ${i-1<step?'done':''} ${i-1===step?'current':'upcoming'}">${i}</div>`).join('');
+  
+  if(step===0){
+    g.innerHTML=`
+      <div class="progress-dots">${dots}</div>
+      <div class="step-badge">Step 1 of 3</div>
+      <div class="prompt"><div class="prompt-text">What is your name?</div></div>
+      <div class="input-area">
+        <label>Type your name:</label>
+        <input type="text" id="nameInput" placeholder="e.g. Ria, Arjun, Priya..." maxlength="20" autofocus>
+      </div>
+      <div class="sentence-preview">
+        <div class="label">Your sentence will appear here:</div>
+        <div class="sentence" id="preview">My name is ___.</div>
+      </div>
+      <div style="text-align:center"><button class="btn btn-primary" onclick="nextStep()">Next →</button></div>`;
+    const inp=document.getElementById('nameInput');
+    inp.addEventListener('input',()=>{
+      const v=inp.value.trim();
+      document.getElementById('preview').textContent=v?`"My name is ${v}."`:'"My name is ___."';
+    });
+  } else if(step===1){
+    g.innerHTML=`
+      <div class="progress-dots">${dots}</div>
+      <div class="step-badge">Step 2 of 3</div>
+      <div class="prompt"><div class="prompt-text">How old are you, ${data.name}?</div></div>
+      <div class="input-area">
+        <label>Pick your age:</label>
+        <select id="ageInput">
+          <option value="">Choose...</option>
+          ${[5,6,7,8,9,10,11,12,13,14].map(a=>`<option value="${a}">${a} years old</option>`).join('')}
+        </select>
+      </div>
+      <div class="sentence-preview">
+        <div class="label">Your sentence:</div>
+        <div class="sentence" id="preview">"I am ___ years old."</div>
+      </div>
+      <div class="all-sentences"><div class="sent s1">"My name is ${data.name}." ✅</div></div>
+      <div style="text-align:center"><button class="btn btn-primary" onclick="nextStep()">Next →</button></div>`;
+    document.getElementById('ageInput').addEventListener('change',function(){
+      const v=this.value;
+      document.getElementById('preview').textContent=v?`"I am ${v} years old."`:'"I am ___ years old."';
+    });
+  } else if(step===2){
+    g.innerHTML=`
+      <div class="progress-dots">${dots}</div>
+      <div class="step-badge">Step 3 of 3</div>
+      <div class="prompt"><div class="prompt-text">What do you like, ${data.name}?</div></div>
+      <div class="input-area">
+        <label>Pick something you love (or type your own!):</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0">
+          ${likes.map(l=>`<button class="btn" style="padding:8px 16px;font-size:.95em;background:#F3E5F5;color:#7E57C2;border:2px solid #CE93D8" onclick="pickLike('${l}')">${l}</button>`).join('')}
+        </div>
+        <input type="text" id="likeInput" placeholder="Or type something else..." maxlength="30">
+      </div>
+      <div class="sentence-preview">
+        <div class="label">Your sentence:</div>
+        <div class="sentence" id="preview">"I like ___."</div>
+      </div>
+      <div class="all-sentences">
+        <div class="sent s1">"My name is ${data.name}." ✅</div>
+        <div class="sent s2">"I am ${data.age} years old." ✅</div>
+      </div>
+      <div style="text-align:center"><button class="btn btn-success" onclick="nextStep()">🎤 Finish & Say It!</button></div>`;
+    document.getElementById('likeInput').addEventListener('input',function(){
+      const v=this.value.trim();
+      if(v) document.getElementById('preview').textContent=`"I like ${v}."`;
+    });
+  } else {
+    showFinal();
+  }
+}
+
+function pickLike(l){
+  document.getElementById('likeInput').value=l;
+  document.getElementById('preview').textContent=`"I like ${l}."`;
+  playDing();
+}
+
+function nextStep(){
+  if(step===0){
+    const v=document.getElementById('nameInput').value.trim();
+    if(!v){alert('Please type your name!');return}
+    data.name=v;playDing();showConfetti(10);
+  } else if(step===1){
+    const v=document.getElementById('ageInput').value;
+    if(!v){alert('Please pick your age!');return}
+    data.age=v;playDing();showConfetti(10);
+  } else if(step===2){
+    const v=document.getElementById('likeInput').value.trim();
+    if(!v){alert('Please pick or type something you like!');return}
+    data.like=v;playCelebration();showConfetti(50);
+  }
+  step++;render();
+}
+
+function showFinal(){
+  const g=document.getElementById('game');
+  g.innerHTML=`
+    <div class="celebration">🌟</div>
+    <h2 style="text-align:center;color:#7E57C2;margin:10px 0">Your 3 SpeakStar Sentences!</h2>
+    <div class="all-sentences">
+      <div class="sent s1" style="font-size:1.3em">"My name is ${data.name}."</div>
+      <div class="sent s2" style="font-size:1.3em">"I am ${data.age} years old."</div>
+      <div class="sent s3" style="font-size:1.3em">"I like ${data.like}."</div>
+    </div>
+    <div class="stars">⭐⭐⭐</div>
+    <div class="speak-prompt">
+      <strong>🎤 SPEAKING CHALLENGE:</strong><br>
+      Say ALL 3 sentences out loud, FAST!<br>
+      Then say them again EVEN FASTER!<br>
+      Can you say them in under 5 seconds? GO!
+    </div>
+    <div class="speak-prompt" style="background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border-color:#FFB74D">
+      <strong>🏠 HOMEWORK:</strong> Say your 3 sentences to 3 different people tonight!
+    </div>
+    <div class="hook">
+      <h3>🔮 Next class sneak peek!</h3>
+      <p>Next time you'll learn to introduce your FAMILY! Can you name your family members in English? Mother, Father, Sister, Brother... who else? 👨‍👩‍👧‍👦</p>
+    </div>
+    <div style="text-align:center;margin-top:15px">
+      <button class="btn btn-primary" onclick="step=0;data.name='';data.age='';data.like='';render()">Build Again!</button>
+    </div>`;
+}
+render();
+</script></body></html>

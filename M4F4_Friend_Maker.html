@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SpeakStar - Friend Maker!</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Trebuchet MS',Arial,sans-serif;background:linear-gradient(135deg,#2E7D32,#1B5E20);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px;overflow-x:hidden}
+.header{text-align:center;color:#fff;margin-bottom:15px}.header h1{font-size:2.2em;text-shadow:2px 2px 4px rgba(0,0,0,.3)}
+.game{background:#fff;border-radius:20px;padding:25px;max-width:700px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.chat{display:flex;flex-direction:column;gap:10px;margin:15px 0;min-height:200px}
+.msg{max-width:80%;padding:12px 18px;border-radius:16px;font-size:1.1em;line-height:1.4;position:relative;animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.msg.friend{background:linear-gradient(135deg,#E0F7FA,#B2EBF2);color:#006064;border-bottom-left-radius:4px;align-self:flex-start}
+.msg.you{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);color:#1B5E20;border-bottom-right-radius:4px;align-self:flex-end}
+.msg .who{font-size:.75em;font-weight:bold;margin-bottom:4px;opacity:.7}
+.choices{display:flex;flex-direction:column;gap:10px;margin:15px 0}
+.choice{padding:14px 18px;border:2px solid #e0e0e0;border-radius:14px;font-size:1.05em;cursor:pointer;transition:.25s;background:#fff;text-align:left}
+.choice:hover{border-color:#2E7D32;background:#E8F5E9;transform:translateX(6px)}
+.choice.selected{border-color:#66BB6A;background:#E8F5E9}
+.choice.wrong-choice{border-color:#FF6B6B;background:#FBE9E7;animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.prompt{text-align:center;font-size:1.1em;color:#2E7D32;font-weight:bold;margin:10px 0;padding:10px;background:#F1F8E9;border-radius:10px}
+.progress{display:flex;gap:8px;justify-content:center;margin:10px 0}
+.step{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:bold;color:#fff;transition:.3s}
+.step.done{background:#66BB6A}.step.current{background:#FFD54F;color:#2D3436;transform:scale(1.2)}.step.todo{background:#ddd;color:#999}
+.speak{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:12px;padding:12px;margin:10px 0;text-align:center;border:2px dashed #66BB6A}
+.btn{padding:14px 30px;border:none;border-radius:14px;font-size:1.1em;font-weight:bold;cursor:pointer;transition:.2s;margin:5px}
+.btn:hover{transform:scale(1.05)}.btn-play{background:linear-gradient(135deg,#2E7D32,#1B5E20);color:#fff}
+.celebration{font-size:3.5em;text-align:center;animation:bounce .6s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.confetti{position:fixed;top:-10px;pointer-events:none;z-index:9999}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+.hook{background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:12px;padding:15px;margin:15px 0;text-align:center;border:2px solid #81C784}
+</style>
+</head>
+<body>
+<div class="header"><h1>🤝 Friend Maker! 🤝</h1><p>Have a conversation and make a new friend!</p></div>
+<div class="game" id="game"></div>
+<script>
+const AudioCtx=window.AudioContext||window.webkitAudioContext;let audioCtx;
+function initAudio(){if(!audioCtx)audioCtx=new AudioCtx()}
+function playCorrect(){initAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.setValueAtTime(523,audioCtx.currentTime);o.frequency.setValueAtTime(659,audioCtx.currentTime+.1);o.frequency.setValueAtTime(784,audioCtx.currentTime+.2);g.gain.setValueAtTime(.3,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+.4);o.start();o.stop(audioCtx.currentTime+.4)}
+function playWrong(){initAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sawtooth';o.frequency.setValueAtTime(200,audioCtx.currentTime);o.frequency.setValueAtTime(150,audioCtx.currentTime+.15);g.gain.setValueAtTime(.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+.3);o.start();o.stop(audioCtx.currentTime+.3)}
+function playCelebration(){initAudio();[523,659,784,1047].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.2,audioCtx.currentTime+i*.15);g.gain.exponentialRampToValueAtTime(.01,audioCtx.currentTime+i*.15+.3);o.start(audioCtx.currentTime+i*.15);o.stop(audioCtx.currentTime+i*.15+.3)})}
+function showConfetti(n=30){const colors=['#FF6B6B','#FFD54F','#66BB6A','#7E57C2','#00BCD4','#FF9800','#E91E63'];for(let i=0;i<n;i++){const c=document.createElement('div');c.className='confetti';c.style.left=Math.random()*100+'vw';c.style.background=colors[Math.floor(Math.random()*colors.length)];c.style.width=(Math.random()*8+6)+'px';c.style.height=c.style.width;c.style.borderRadius=Math.random()>.5?'50%':'2px';c.style.animation=`fall ${Math.random()*2+1.5}s linear forwards`;c.style.animationDelay=Math.random()*.5+'s';document.body.appendChild(c);setTimeout(()=>c.remove(),4000)}}
+
+const conv=[
+  {friend:"Hi there! I'm new at this school. My name is Aanya!",prompt:"How do you greet Aanya?",
+   choices:["Hello Aanya! My name is ___. Nice to meet you!","...","Go away."],correct:0,
+   speak:"Say: Hello! My name is [your name]. Nice to meet you!"},
+  {friend:"Nice to meet you too! How old are you?",prompt:"Answer Aanya's question!",
+   choices:["I am ___ years old. How old are you?","Fine.","I don't know."],correct:0,
+   speak:"Say: I am [your age] years old. How old are you?"},
+  {friend:"I'm 7! What do you like to do for fun?",prompt:"Tell Aanya what you like!",
+   choices:["I like ___ because ___. What about you?","Nothing.","I like."],correct:0,
+   speak:"Say: I like [activity] because [reason]. What about you?"},
+  {friend:"I love drawing and playing badminton! Do you like badminton?",prompt:"Find something in common!",
+   choices:["That's cool! I like ___ too! We should play together!","No.","Maybe."],correct:0,
+   speak:"Say: That's cool! I like [something] too! We should [do something] together!"},
+  {friend:"Yes! Let's play during break time! It was really nice talking to you!",prompt:"End the conversation politely!",
+   choices:["It was nice meeting you too, Aanya! See you at break time!","Ok bye.","Whatever."],correct:0,
+   speak:"Say: It was nice meeting you too! See you later!"},
+];
+let cur=0,chatHistory=[];
+function render(){
+  if(cur>=conv.length){showEnd();return}
+  const c=conv[cur];
+  chatHistory.push({who:'friend',text:c.friend});
+  const steps=conv.map((_,i)=>`<div class="step ${i<cur?'done':''} ${i===cur?'current':''} ${i>cur?'todo':''}">${i+1}</div>`).join('');
+  const chatHTML=chatHistory.map(m=>`<div class="msg ${m.who}"><div class="who">${m.who==='friend'?'🧒 Aanya:':'🌟 You:'}</div>${m.text}</div>`).join('');
+  document.getElementById('game').innerHTML=`
+    <div class="progress">${steps}</div>
+    <div class="chat" id="chat">${chatHTML}</div>
+    <div class="prompt">${c.prompt}</div>
+    <div class="choices">${c.choices.map((ch,i)=>`<div class="choice" onclick="pick(${i})">${ch}</div>`).join('')}</div>`;
+  document.getElementById('chat').scrollTop=99999;
+}
+function pick(idx){
+  const c=conv[cur];const choices=document.querySelectorAll('.choice');
+  if(idx===c.correct){
+    playCorrect();showConfetti(10);
+    choices[idx].classList.add('selected');
+    chatHistory.push({who:'you',text:c.choices[idx]});
+    setTimeout(()=>{
+      const chatEl=document.getElementById('chat');
+      if(chatEl){chatEl.innerHTML+=`<div class="msg you"><div class="who">🌟 You:</div>${c.choices[idx]}</div>`;chatEl.scrollTop=99999}
+    },300);
+    setTimeout(()=>{
+      const game=document.getElementById('game');
+      if(game)game.innerHTML+=`<div class="speak">🎤 ${c.speak}</div>`;
+    },800);
+    setTimeout(()=>{cur++;render()},3000);
+  }else{
+    playWrong();choices[idx].classList.add('wrong-choice');
+    setTimeout(()=>choices[idx].classList.remove('wrong-choice'),500);
+  }
+}
+function showEnd(){
+  playCelebration();showConfetti(50);
+  document.getElementById('game').innerHTML=`
+    <div class="celebration">🤝</div>
+    <h2 style="text-align:center;color:#2E7D32;margin:15px 0">You made a new friend! 🏆</h2>
+    <p style="text-align:center;font-size:1.2em;color:#666">You had a full 5-step conversation in English!</p>
+    <div style="background:#F1F8E9;border-radius:12px;padding:15px;margin:15px 0">
+      <p style="font-weight:bold;color:#2E7D32;margin-bottom:8px">You used all 5 friendship steps:</p>
+      <p>✅ 1. Greeted and said your name</p>
+      <p>✅ 2. Answered a question</p>
+      <p>✅ 3. Shared what you like with a reason</p>
+      <p>✅ 4. Found something in common</p>
+      <p>✅ 5. Said goodbye politely</p>
+    </div>
+    <div class="speak">🎤 <strong>Real life challenge:</strong> Use these 5 steps next time you meet someone new at school, a party, or anywhere! Try it in English!</div>
+    <div class="hook">
+      <h3 style="color:#1B5E20">🔮 Get ready for the grand finale!</h3>
+      <p style="color:#2E7D32">Next class is your 2-Minute Show! You'll talk about yourself for 2 whole minutes! Think about: your name, family, routine, feelings, favourites, and a story. You're going to be a STAR! ⭐</p>
+    </div>
+    <div style="text-align:center;margin-top:15px"><button class="btn btn-play" onclick="cur=0;chatHistory=[];render()">Play Again!</button></div>`;
+}
+render();
+</script></body></html>

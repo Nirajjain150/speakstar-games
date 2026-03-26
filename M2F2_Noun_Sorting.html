@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SpeakStar - Noun Sorting Game</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Trebuchet MS',Arial,sans-serif;background:linear-gradient(135deg,#00BCD4,#7E57C2);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+.header{text-align:center;color:#fff;margin-bottom:15px}.header h1{font-size:2em;text-shadow:2px 2px 4px rgba(0,0,0,.3)}
+.game{background:#fff;border-radius:20px;padding:25px;max-width:700px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.word-area{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:15px 0;min-height:50px}
+.word{padding:10px 20px;border-radius:12px;font-size:1.1em;font-weight:bold;cursor:grab;user-select:none;transition:all .2s;color:#fff;border:none}
+.word:hover{transform:scale(1.1);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.word.placed{opacity:.3;cursor:default}
+.buckets{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:15px 0}
+.bucket{border:3px dashed #ddd;border-radius:15px;padding:12px;min-height:100px;text-align:center;transition:all .3s}
+.bucket.over{border-color:#00BCD4;background:#E0F7FA}
+.bucket.correct{border-color:#66BB6A;background:#E8F5E9}
+.bucket.wrong{border-color:#FF6B6B;background:#FBE9E7;animation:shake .4s}
+.bucket h3{font-size:1em;margin-bottom:8px;padding:5px 12px;border-radius:8px;display:inline-block;color:#fff}
+.bucket .items{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.bucket .item{padding:5px 12px;background:#f5f5f5;border-radius:8px;font-size:.9em;font-weight:bold}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.btn{padding:12px 28px;border:none;border-radius:12px;font-size:1em;font-weight:bold;cursor:pointer;transition:all .2s;margin:5px}
+.btn:hover{transform:scale(1.05)}
+.btn-check{background:#FFD54F;color:#2D3436}.btn-next{background:#7E57C2;color:#fff}
+.score{text-align:center;font-size:1.8em;margin:10px 0}
+.fb{text-align:center;font-size:1.2em;font-weight:bold;min-height:30px;margin:10px 0}
+.celebration{font-size:3em;text-align:center;animation:bounce .5s ease infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+</style>
+</head>
+<body>
+<div class="header"><h1>🏷️ Noun Sorting Game 🏷️</h1><p>Drag each word to the right bucket! — SpeakStar Level 1</p></div>
+<div class="game" id="game"></div>
+<script>
+const rounds=[
+  {words:[{w:"Teacher",t:"person"},{w:"Park",t:"place"},{w:"Dog",t:"animal"},{w:"Book",t:"thing"},{w:"Doctor",t:"person"},{w:"School",t:"place"}]},
+  {words:[{w:"Cat",t:"animal"},{w:"Market",t:"place"},{w:"Ball",t:"thing"},{w:"Mother",t:"person"},{w:"Elephant",t:"animal"},{w:"Chair",t:"thing"}]},
+  {words:[{w:"Friend",t:"person"},{w:"Home",t:"place"},{w:"Parrot",t:"animal"},{w:"Phone",t:"thing"},{w:"Hospital",t:"place"},{w:"Fish",t:"animal"}]}
+];
+const colors={person:"#FF6B6B",place:"#00BCD4",animal:"#66BB6A",thing:"#FFA726"};
+let cur=0,score=0,placed={};
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function render(){
+  placed={person:[],place:[],animal:[],thing:[]};
+  const r=rounds[cur];const words=shuffle([...r.words]);
+  document.getElementById('game').innerHTML=`
+    <div style="text-align:center"><span style="background:#FFD54F;color:#2D3436;padding:4px 14px;border-radius:20px;font-weight:bold;font-size:.9em">Round ${cur+1} of ${rounds.length}</span></div>
+    <div class="word-area" id="wordArea">${words.map((w,i)=>`<button class="word" style="background:${colors[w.t]}" draggable="true" data-type="${w.t}" data-idx="${i}" onclick="placeWord(this,'${w.w}','${w.t}')">${w.w}</button>`).join('')}</div>
+    <div class="buckets">
+      ${['person','place','animal','thing'].map(t=>`<div class="bucket" id="b-${t}" ondrop="drop(event,'${t}')" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')">
+        <h3 style="background:${colors[t]}">${t.toUpperCase()}</h3><div class="items" id="items-${t}"></div></div>`).join('')}
+    </div>
+    <div class="fb" id="fb"></div>
+    <div style="text-align:center"><button class="btn btn-check" onclick="checkRound()">✓ Check!</button></div>
+    <div class="score" id="sc">${'⭐'.repeat(score)}${'☆'.repeat(rounds.length-score)}</div>`;
+  document.querySelectorAll('.word').forEach(el=>{el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text',JSON.stringify({w:el.textContent,t:el.dataset.type,idx:el.dataset.idx}))})});
+}
+function placeWord(el,w,t){
+  if(el.classList.contains('placed'))return;
+  const types=['person','place','animal','thing'];
+  const target=types[Math.floor(Math.random()*4)];//fallback
+  // Simple click cycles through buckets — for mobile
+  let currentBucket=null;
+  for(const bt of types){if(placed[bt].find(x=>x.w===w)){currentBucket=bt;break}}
+  if(currentBucket){
+    placed[currentBucket]=placed[currentBucket].filter(x=>x.w!==w);
+    const nextIdx=(types.indexOf(currentBucket)+1)%4;
+    placed[types[nextIdx]].push({w,t});
+  }else{
+    placed[types[0]].push({w,t});el.classList.add('placed');
+  }
+  updateBuckets();
+}
+function drop(e,bucket){
+  e.preventDefault();document.getElementById('b-'+bucket).classList.remove('over');
+  try{const d=JSON.parse(e.dataTransfer.getData('text'));
+  // Remove from other buckets
+  for(const b in placed)placed[b]=placed[b].filter(x=>x.w!==d.w);
+  placed[bucket].push({w:d.w,t:d.t});
+  document.querySelector(`[data-idx="${d.idx}"]`).classList.add('placed');
+  updateBuckets();}catch(err){}
+}
+function updateBuckets(){
+  for(const t in placed){
+    document.getElementById('items-'+t).innerHTML=placed[t].map(x=>`<span class="item" style="color:${colors[x.t]}">${x.w}</span>`).join('');
+  }
+}
+function checkRound(){
+  let allCorrect=true,total=0;
+  for(const t in placed){
+    const bucket=document.getElementById('b-'+t);
+    const wrong=placed[t].some(x=>x.t!==t);
+    if(wrong){bucket.classList.add('wrong');allCorrect=false;setTimeout(()=>bucket.classList.remove('wrong'),500)}
+    else{bucket.classList.add('correct')}
+    total+=placed[t].length;
+  }
+  if(total<rounds[cur].words.length){document.getElementById('fb').innerHTML='<span style="color:#FF6B6B">Place all words first!</span>';return}
+  if(allCorrect){
+    score++;document.getElementById('fb').innerHTML='<span style="color:#66BB6A">🎉 All correct!</span>';
+    document.getElementById('sc').innerHTML='⭐'.repeat(score)+'☆'.repeat(rounds.length-score);
+    setTimeout(()=>{cur++;if(cur>=rounds.length)showEnd();else render()},1200);
+  }else{document.getElementById('fb').innerHTML='<span style="color:#FF6B6B">Some words are in the wrong bucket! Try again!</span>'}
+}
+function showEnd(){
+  document.getElementById('game').innerHTML=`<div class="celebration">🏷️</div><h2 style="text-align:center;color:#00BCD4;margin:15px 0">NOUN MASTER!</h2><div class="score">${'⭐'.repeat(score)}</div><p style="text-align:center;font-size:1.2em">${score}/${rounds.length} rounds correct!</p><div style="text-align:center;margin-top:20px"><button class="btn btn-next" onclick="cur=0;score=0;render()">Play Again!</button></div>`;
+}
+render();
+</script></body></html>
